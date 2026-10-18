@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SaveTok – TikTok Downloader Tanpa Watermark</title>
+<meta name="description" content="Download video TikTok tanpa watermark, MP3, HD, foto slide, dan cover. Gratis dan tanpa batas.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+<b class="logo">Save<span>Tok</span></b>
+<nav><select id="lang" aria-label="Language"></select><button class="btn sm" id="theme" aria-label="Theme">◐</button><button class="btn sm" id="auth"></button></nav>
+</header>
+<main class="wrap">
+<section class="hero">
+<h1 data-i="h1"></h1>
+<p class="mut" data-i="sub"></p>
+<div class="box card">
+<div class="tabs"><button type="button" class="on" data-m="single" data-i="one"></button><button type="button" data-m="batch" data-i="bat"></button></div>
+<form id="f" autocomplete="off">
+<input id="u" type="text" inputmode="url" autocapitalize="off" spellcheck="false">
+<textarea id="ub" rows="5" hidden></textarea>
+<div class="fr"><button type="button" class="btn" id="paste" data-i="paste"></button><button class="btn pri" id="go" data-i="go"></button></div>
+</form>
+<div id="msg" role="status"></div>
+</div>
+<div id="res"></div>
+</section>
+<section class="feats" id="feats"></section>
+<section><h2 data-i="how"></h2><ol id="steps"></ol></section>
+<section><div class="hh"><h2 data-i="hist"></h2><button class="btn sm" id="hc" data-i="clear"></button></div><div id="hl"></div></section>
+<section><h2 data-i="faq"></h2><div id="faqs"></div></section>
+<section><h2 data-i="about"></h2><p id="ab"></p></section>
+</main>
+<footer class="wrap mut"><p data-i="foot"></p></footer>
+<dialog id="dlg">
+<form id="af"><h3 data-i="login"></h3>
+<input id="au" autocomplete="username" maxlength="20" autocapitalize="off">
+<input id="ap" type="password" autocomplete="current-password">
+<p id="ae" class="err"></p>
+<div class="fr"><button class="btn pri" data-i="login"></button><button type="button" class="btn" id="rg" data-i="reg"></button><button type="button" class="btn" id="cl">✕</button></div>
+</form>
+</dialog>
+<div id="toast" role="status"></div>
+<script src="script.js"></script>
+</body>
+</html>
