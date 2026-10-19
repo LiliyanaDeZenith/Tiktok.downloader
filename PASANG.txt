@@ -1,0 +1,21 @@
+CARA PASANG (SaveTok - WhatsApp Share)
+
+1. Upload 2 file ini ke root repo Tiktok.downloader (sejajar dengan script.js & style.css):
+   - whatsapp-share.js   (file baru)
+   - index.html          (sama persis dengan yang lama, hanya ditambah 1 baris:
+                          <script src="whatsapp-share.js"></script> setelah script.js)
+   Kalau index.html di repo sudah kamu ubah, jangan timpa; cukup tambahkan baris itu sendiri.
+2. Commit. Tunggu 1-2 menit, lalu refresh GitHub Pages (Ctrl+F5 / hapus cache).
+
+FITUR
+- Tombol "WhatsApp": share link hasil download langsung ke WhatsApp.
+- Tombol "Status WA": share file video ke WhatsApp (pilih "Status Saya" di daftar WhatsApp).
+- Centang "Auto ke Status setelah download": setelah klik download, otomatis siapkan file
+  dan tampilkan tombol Kirim untuk Status WhatsApp.
+
+CATATAN
+- WhatsApp tidak mengizinkan posting Status tanpa tap sama sekali; browser selalu minta 1 tap.
+- Kalau file tidak bisa diambil browser (CORS) / di desktop, fallback ke share link via WhatsApp.
+- style.css tidak diubah. Tombol memakai class yang sudah ada (.btn .sm).
+- Kalau tombol download di script.js bukan <a>, panggil setelah download:
+  SaveTokWA.afterDownload(url, namaFile)
