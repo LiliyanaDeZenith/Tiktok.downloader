@@ -1,0 +1,10 @@
+SaveTok: update "Upload ke Status WhatsApp"
+
+1. Upload status-upload.js ke repo, satu folder dengan index.html.
+2. Buka index.html, cari baris 47:
+   <script src="script.js"></script>
+   lalu tambahkan satu baris tepat di bawahnya (jadi baris 48):
+   <script src="status-upload.js"></script>
+3. Simpan (commit). script.js dan style.css tidak perlu diubah.
+
+Catatan: menu Bagikan hanya jalan lewat HTTPS (GitHub Pages sudah HTTPS).
