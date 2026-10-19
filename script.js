@@ -175,3 +175,30 @@ $('#af').onsubmit=e=>{e.preventDefault();auth(false)};
 $('#rg').onclick=()=>auth(true);
 $('#cl').onclick=()=>$('#dlg').close();
 setMode('single');applyLang();
+/* ===== SaveTok: tombol "WhatsApp" -> kirim video/foto ke Status WhatsApp =====
+   TEMPEL DI PALING BAWAH script.js (baris 178, setelah: setMode('single');applyLang();)
+   Tanpa API key: pakai Web Share API bawaan browser HP (gratis & resmi). */
+Object.assign(D.id,{wa:'WhatsApp',e_wa:'Simpan filenya, lalu buka WhatsApp → Status dan pilih file itu.',e_wa2:'File siap. Tekan WhatsApp sekali lagi.'});
+Object.assign(D.en,{wa:'WhatsApp',e_wa:'Save the file, then open WhatsApp → Status and pick it.',e_wa2:'File ready. Tap WhatsApp once more.'});
+async function waFiles(d){ // ambil video/foto jadi File supaya bisa di-share
+ const v=!d.images.length;
+ return Promise.all((v?[d.play]:d.images.slice(0,10)).map(async(u,i)=>{
+  if(!u)throw 0;const r=await fetch(ab(u));if(!r.ok)throw 0;const x=await r.blob();
+  return new File([x],fn(d,v?'nowm':'foto'+(i+1),v?'mp4':'jpg'),{type:v?'video/mp4':x.type||'image/jpeg'});
+ }));
+}
+ACT.wa=async(d,b)=>{
+ const old=b.textContent,had=!!d._wa,rs=()=>{b.disabled=false;b.textContent=old},
+ fb=async()=>{await(d.images.length?ACT.imgs(d):ACT.nowm(d));toast(t('e_wa'))}; // cadangan: unduh file
+ b.disabled=true;b.textContent='…';
+ try{
+  const f=d._wa||(d._wa=await waFiles(d));rs();
+  if(navigator.canShare&&navigator.canShare({files:f}))await navigator.share({files:f});else await fb();
+ }catch(e){
+  rs();const n=e&&e.name;
+  if(n==='NotAllowedError'&&!had)toast(t('e_wa2'));else if(n!=='AbortError')await fb();
+ }
+};
+const _card=card; // tambah tombol WhatsApp di baris tombol hasil, kode lama tidak diubah
+card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('beforeend','<button type="button" class="btn" data-k="wa">'+esc(t('wa'))+'</button>');return E};
+                                                   
