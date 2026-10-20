@@ -238,21 +238,84 @@ card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('bef
  };
  document.body.append(dlg);$('#theme').after(btn);
 })();
-/* ===== SaveTok: sponsor game RPG, tampil di ATAS bagian "Tentang SaveTok" =====
-   TEMPEL DI PALING BAWAH script.js (setelah patch WhatsApp & Deluxe kalau sudah dipasang).
-   Daftar game ada di GAMES, judul bagian di kamus teks "sp". Memakai gaya kartu yang sudah ada (.feats), CSS tidak diubah. */
+/* ===== SaveTok: token harian + Premium =====
+   TEMPEL DI PALING BAWAH script.js (setelah patch sponsor ikon). Angka aturan ada di baris const paling atas.
+   Jujur soal batasan: token & status premium disimpan di browser (localStorage), jadi ini pembatas ringan, bukan keamanan.
+   Tugas (ikuti WA/TikTok, download game, iklan) tidak bisa dicek website statis: sistemnya berbasis kejujuran + jeda waktu. */
 (()=>{
- Object.assign(D.id,{sp:'Sponsor Game RPG'});
- Object.assign(D.en,{sp:'RPG Game Sponsors'});
- Object.assign(D.ja,{sp:'RPGゲームのスポンサー'});
- Object.assign(D.ko,{sp:'RPG 게임 스폰서'});
- Object.assign(D.zh,{sp:'RPG游戏赞助商'});
- Object.assign(D.ru,{sp:'Спонсоры RPG-игр'});
- const GAMES=['Zenless Zone Zero','Honkai Impact 3rd','Honkai: Star Rail','Genshin Impact','Wuthering Waves','Tower of Fantasy','Solo Leveling: ARISE','Neverness to Everness','Arknights: Endfield','Where Winds Meet','Blue Archive'];
- const sec=el('section'),h=el('h2',0,t('sp')),g=el('div','feats');
- h.dataset.i='sp'; // judul ikut ganti saat bahasa diubah
- g.innerHTML=GAMES.map(n=>'<div><b>'+esc(n)+'</b></div>').join('');
- sec.append(h,g);
- $('#ab').closest('section').before(sec);
+ const CAP=30,DAILY=5,ADN=5,WAIT=8000,SEC=10; // maks token, token per hari, jumlah iklan, jeda minimal tugas (ms), detik per iklan
+ const WA='https://whatsapp.com/channel/0029VbDfnrw0QeacGwXoCG3U',TT='https://www.tiktok.com/@liliyana.chan';
+ // game untuk tugas download: [nama, label singkat, halaman resmi]
+ const GM=[['Genshin Impact','Genshin','https://genshin.hoyoverse.com/'],['Honkai: Star Rail','HSR','https://hsr.hoyoverse.com/en-us/home'],['Zenless Zone Zero','ZZZ','https://zenless.hoyoverse.com/'],['Honkai Impact 3rd','HI3','https://honkaiimpact3.hoyoverse.com/global/en-us/'],['Wuthering Waves','WuWa','https://wutheringwaves.kurogames.com/en/']];
+ // iklan sponsor HoYoverse: [game, teks, link]. Ganti dengan materi iklan asli kalau sudah ada.
+ const ADS=[['Genshin Impact','Open-world action RPG',GM[0][2]],['Honkai: Star Rail','A space fantasy RPG',GM[1][2]],['Zenless Zone Zero','Urban fantasy action RPG',GM[2][2]],['Honkai Impact 3rd','Sci-fi action game',GM[3][2]]];
+ Object.assign(D.id,{pr_tk:'Token',pr_on:'Premium aktif, tanpa batas',pr_btn:'Premium',pr_d:'Premium = download tanpa batas. Selesaikan 4 tahap. Tanpa premium: 1 token per video, 3 token per batch, +5 token tiap hari (maks. 30).',pr_low:'Token tidak cukup (butuh {c}, punya {n}). Token bertambah +5 tiap hari (maks. 30), atau jadi Premium.',pr_wa:'Ikuti Saluran WhatsApp',pr_tt:'Ikuti TikTok @liliyana.chan',pr_gm:'Download satu game HoYoverse atau Wuthering Waves',pr_ad:'Tonton 5 iklan (Sponsor HoYoverse)',pr_open:'Buka',pr_ok:'Sudah',pr_first:'Tekan Buka dulu.',pr_wait:'Selesaikan tugasnya dulu, lalu tekan Sudah.',pr_lock:'Selesaikan tahap 1 sampai 3 dulu.',pr_watch:'Tonton iklan',pr_ad1:'Iklan',pr_sp:'Sponsor HoYoverse',pr_w:'Tunggu {s} dtk…',pr_fin:'Selesai ✓',pr_vis:'Halaman resmi',pr_win:'Selamat! Premium aktif. 🎉',pr_x:'Tutup'});
+ Object.assign(D.en,{pr_tk:'Tokens',pr_on:'Premium active, unlimited',pr_btn:'Premium',pr_d:'Premium = unlimited downloads. Finish 4 steps. Without premium: 1 token per video, 3 per batch, +5 tokens every day (max 30).',pr_low:'Not enough tokens (need {c}, have {n}). You get +5 tokens every day (max 30), or go Premium.',pr_wa:'Follow the WhatsApp Channel',pr_tt:'Follow TikTok @liliyana.chan',pr_gm:'Download one HoYoverse game or Wuthering Waves',pr_ad:'Watch 5 ads (HoYoverse Sponsor)',pr_open:'Open',pr_ok:'Done',pr_first:'Tap Open first.',pr_wait:'Finish the task first, then tap Done.',pr_lock:'Finish steps 1 to 3 first.',pr_watch:'Watch ad',pr_ad1:'Ad',pr_sp:'HoYoverse Sponsor',pr_w:'Wait {s}s…',pr_fin:'Done ✓',pr_vis:'Official page',pr_win:'Congrats! Premium is on. 🎉',pr_x:'Close'});
+ const day=()=>Math.floor((Date.now()-new Date().getTimezoneOffset()*6e4)/864e5);
+ const tok=()=>{const d=day();let s=S.g('stk',null);if(!s||typeof s.n!=='number')s={n:DAILY,d};else if(d>s.d){s.n=Math.min(CAP,s.n+(d-s.d)*DAILY);s.d=d}S.s('stk',s);return s};
+ const gp=()=>Object.assign({wa:0,tt:0,gm:0,ad:0},S.g('spr',{}));
+ const prem=()=>{const p=gp();return !!(p.wa&&p.tt&&p.gm&&p.ad>=ADN)};
+ const charge=c=>{const s=tok();s.n=Math.max(0,s.n-c);S.s('stk',s)};
+ const im=(n,s)=>{const u=(window.STIC||{})[n];return u?'<img src="'+esc(u)+'" alt="" width="'+s+'" height="'+s+'" style="border-radius:22%;display:block;margin:auto">':''};
+ const btn=(l,a,k,c,x)=>'<button type="button" class="btn'+(c?' '+c:'')+'" data-a="'+a+'"'+(k?' data-k="'+k+'"':'')+(x||'')+'>'+esc(t(l))+'</button>';
+ const dlg=el('dialog'),ad=el('dialog'),bx=el('div');
+ let note='',t0={},cur=ADS[0],iv=0;
+ bx.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:14px';
+ const bar=()=>{bx.innerHTML='<span class="mut">'+(prem()?'👑 '+esc(t('pr_on')):'⚡ '+esc(t('pr_tk'))+' <b style="color:var(--tx)">'+tok().n+'/'+CAP+'</b>')+'</span><button type="button" class="btn sm">'+esc(t('pr_btn'))+'</button>'};
+ const say=m=>{dlg.querySelector('#prn').textContent=m};
+ const draw=()=>{
+  const p=gp(),lock=!(p.wa&&p.tt&&p.gm);
+  const row=(n,k,l,b)=>'<div style="margin-top:14px"><b>'+n+'. '+esc(t(l))+'</b>'+(p[k]?' ✓':b)+'</div>';
+  const pair=k=>'<div class="fr">'+btn('pr_open','go',k,'pri')+btn('pr_ok','ok',k)+'</div>';
+  const games='<div class="fr">'+GM.map((g,i)=>'<button type="button" class="btn" data-a="game" data-i="'+i+'" title="'+esc(g[0])+'" aria-label="'+esc(g[0])+'" style="padding:6px">'+(im(g[0],36)||esc(g[1]))+'</button>').join('')+'</div><div class="fr">'+btn('pr_ok','ok','gm')+'</div>';
+  dlg.innerHTML='<h3>👑 Premium</h3><p class="mut" id="prn">'+esc(note||t('pr_d'))+'</p>'
+   +row(1,'wa','pr_wa',pair('wa'))+row(2,'tt','pr_tt',pair('tt'))+row(3,'gm','pr_gm',games)
+   +'<div style="margin-top:14px"><b>4. '+esc(t('pr_ad'))+'</b> <span class="mut">'+(p.ad>=ADN?'✓':p.ad+'/'+ADN)+'</span>'
+   +(p.ad>=ADN?'':'<div class="fr">'+btn('pr_watch','ad','','pri',lock?' disabled':'')+'</div>'+(lock?'<small>'+esc(t('pr_lock'))+'</small>':''))+'</div>'
+   +'<div class="fr" style="margin-top:16px">'+btn('pr_x','x')+'</div>';
+ };
+ const show=m=>{note=m||'';draw();if(!dlg.open)dlg.showModal()};
+ dlg.onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const a=b.dataset.a,k=b.dataset.k,p=gp();
+  if(a==='x')dlg.close();
+  else if(a==='go'){window.open(k==='wa'?WA:TT,'_blank','noopener');t0[k]=Date.now();say(t('pr_wait'))}
+  else if(a==='game'){const g=GM[+b.dataset.i];window.open(g[2],'_blank','noopener');t0.gm=Date.now();say(g[0]+': '+t('pr_wait'))}
+  else if(a==='ok'){
+   if(!t0[k])return say(t('pr_first'));
+   if(Date.now()-t0[k]<WAIT)return say(t('pr_wait'));
+   p[k]=1;S.s('spr',p);note='';draw();bar();
+  }
+  else if(a==='ad')play();
+ };
+ const play=()=>{
+  const p=gp();let c=SEC;cur=ADS[p.ad%ADS.length];
+  ad.innerHTML='<small class="mut">'+esc(t('pr_ad1'))+' '+(p.ad+1)+'/'+ADN+' · '+esc(t('pr_sp'))+'</small><div style="text-align:center;margin:14px 0">'+im(cur[0],72)+'<h3 style="margin:10px 0 4px">'+esc(cur[0])+'</h3><p class="mut" style="margin:0">'+esc(cur[1])+'</p></div><div class="fr">'+btn('pr_vis','vis')+'<button type="button" class="btn pri" data-a="fin" disabled>'+esc(t('pr_w').replace('{s}',c))+'</button></div>';
+  const f=ad.querySelector('[data-a=fin]');
+  clearInterval(iv);
+  iv=setInterval(()=>{
+   if(document.visibilityState==='visible')c--;
+   if(c<=0){clearInterval(iv);f.disabled=false;f.textContent=t('pr_fin')}else f.textContent=t('pr_w').replace('{s}',c);
+  },1000);
+  ad.showModal();
+ };
+ ad.onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.a==='vis')window.open(cur[2],'_blank','noopener');
+  else if(b.dataset.a==='fin'){const p=gp();p.ad++;S.s('spr',p);ad.close();note=prem()?t('pr_win'):'';draw();bar()}
+ };
+ ad.onclose=()=>clearInterval(iv);
+ bx.onclick=e=>{if(e.target.closest('button'))show('')};
+ const _go=go,_al=applyLang;
+ go=async()=>{ // potong token hanya kalau link berhasil diproses: 1 token, batch 3 token
+  if(busy)return _go();
+  const c=mode==='single'?1:3,s=tok();
+  if(!prem()&&s.n<c)return show(t('pr_low').replace('{c}',c).replace('{n}',s.n));
+  await _go();
+  if(!prem()&&$('#msg').className!=='err'&&$$('#res article.card').length)charge(c);
+  bar();
+ };
+ applyLang=()=>{_al();bar()};
+ $('#msg').after(bx);document.body.append(dlg,ad);bar();
 })();
-                                                                                                               
+                     
