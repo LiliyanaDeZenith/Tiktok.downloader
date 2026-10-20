@@ -364,4 +364,116 @@ card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('bef
   else jp('https://itunes.apple.com/search?country=us&entity=software&limit=10&term='+encodeURIComponent(x[0]),ss=>{const q=ss.find(r=>okn(i,r)&&new RegExp(x[3]).test(pb(r)));if(q)save(i,q.artworkUrl100)});
  }));
 })();
+// UPDATE: tombol "AI Asisten" di menu pengaturan "Deluxe"
+// Tempel di dalam <script> ... </script> baru, tepat di atas </body>
+
+;(function () {
+  if (window.__skAi) return;
+  window.__skAi = true;
+
+  // Alamat AI. Hanya dipakai di dalam kode, tidak ditampilkan di layar.
+  var AI_URL = 'https://nexus-sealyn-ai-deve-m9l5.bolt.host/';
+  var DLG = 'sk-ai-dlg';
+  var ITEM = 'sk-ai-item';
+  var prevOverflow = '';
+
+  // Gaya hanya untuk elemen baru, tampilan yang sudah ada tidak disentuh.
+  var st = document.createElement('style');
+  st.textContent =
+    '.sk-ai-btn{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;margin:8px 0;padding:12px 14px;border:1px solid rgba(128,128,128,.3);border-radius:12px;background:rgba(128,128,128,.1);color:inherit;font:inherit;text-align:left;cursor:pointer}' +
+    '.sk-ai-go{margin-left:auto;opacity:.5}' +
+    '.sk-ai-btn:focus-visible,.sk-ai-x:focus-visible{outline:2px solid currentColor;outline-offset:2px}' +
+    'dialog.sk-ai-dlg{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:hidden}' +
+    'dialog.sk-ai-dlg[open]{display:flex;flex-direction:column}' +
+    '.sk-ai-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0px));border-bottom:1px solid rgba(128,128,128,.3)}' +
+    '.sk-ai-x{border:0;background:none;color:inherit;font:inherit;font-size:1.3em;padding:4px 8px;cursor:pointer}' +
+    '.sk-ai-frame{flex:1;min-height:0;width:100%;border:0}';
+  document.head.appendChild(st);
+
+  function clear(c) {
+    return !c || c === 'transparent' || /rgba\(.*,\s*0\)$/.test(c);
+  }
+
+  function isLight(c) {
+    var m = (c || '').match(/\d+/g) || [0, 0, 0];
+    return (m[0] * 299 + m[1] * 587 + m[2] * 114) / 1000 > 140;
+  }
+
+  // Panel AI layar penuh (warna mengikuti tema halaman: gelap/terang)
+  function openAI() {
+    var d = document.getElementById(DLG);
+    if (!d) {
+      d = document.createElement('dialog');
+      d.id = DLG;
+      d.className = 'sk-ai-dlg';
+      d.innerHTML =
+        '<div class="sk-ai-bar"><b>AI Asisten</b>' +
+        '<button type="button" class="sk-ai-x" aria-label="Tutup">\u2715</button></div>' +
+        '<iframe class="sk-ai-frame" title="AI Asisten" allow="clipboard-write"></iframe>';
+      d.querySelector('.sk-ai-x').onclick = function () { d.close(); };
+      d.addEventListener('close', function () {
+        document.documentElement.style.overflow = prevOverflow;
+      });
+      document.body.appendChild(d);
+    }
+
+    var cs = getComputedStyle(document.body);
+    var bg = cs.backgroundColor;
+    if (clear(bg)) bg = getComputedStyle(document.documentElement).backgroundColor;
+    if (clear(bg)) bg = isLight(cs.color) ? '#0b0b0f' : '#ffffff';
+    d.style.background = bg;
+    d.style.color = cs.color;
+
+    var f = d.querySelector('iframe');
+    if (!f.getAttribute('src')) f.src = AI_URL;
+
+    if (!d.open) {
+      prevOverflow = document.documentElement.style.overflow;
+      document.documentElement.style.overflow = 'hidden';
+      d.showModal();
+    }
+  }
+
+  function letters(s) {
+    return (s || '').toLowerCase().replace(/[^a-z]/g, '');
+  }
+
+  // Cari label "Deluxe" lalu pasang tombol AI tepat di bawahnya
+  function ensure() {
+    var item = document.getElementById(ITEM);
+    var prev = item && item.previousElementSibling;
+    if (prev && letters(prev.textContent) === 'deluxe') return;
+
+    var all = document.body.getElementsByTagName('*');
+    var row = null;
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (el.namespaceURI !== 'http://www.w3.org/1999/xhtml') continue;
+      if (/^(SCRIPT|STYLE|IFRAME|SELECT|OPTION|OPTGROUP)$/.test(el.tagName)) continue;
+      var t = el.textContent;
+      if (t.length < 40 && letters(t) === 'deluxe') { row = el; break; }
+    }
+    if (!row) return;
+
+    if (item) item.remove();
+    var w = document.createElement(row.tagName === 'LI' ? 'li' : 'div');
+    w.id = ITEM;
+    w.style.cssText = 'grid-column:1/-1;list-style:none';
+    w.innerHTML =
+      '<button type="button" class="sk-ai-btn">' +
+      '<span style="font-size:1.4em">\uD83E\uDD16</span>' +
+      '<span>AI Asisten</span>' +
+      '<span class="sk-ai-go">\u203A</span></button>';
+    w.firstChild.onclick = openAI;
+    row.insertAdjacentElement('afterend', w);
+  }
+
+  // Menu pengaturan dirender lewat JavaScript, jadi dipantau terus
+  var timer;
+  new MutationObserver(function () {
+    clearTimeout(timer);
+    timer = setTimeout(ensure, 150);
+  }).observe(document.body, { childList: true, subtree: true });
+  ensure();
+})();
    
