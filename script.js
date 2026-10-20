@@ -476,4 +476,34 @@ card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('bef
   }).observe(document.body, { childList: true, subtree: true });
   ensure();
 })();
-   
+// UPDATE: video 16:9 di bawah judul utama "Download Video TikTok Tanpa Watermark"
+// Tempel di paling bawah script.js, setelah baris 478 (penutup "})();" terakhir)
+
+;(function () {
+  var VIDEO_URL = 'https://videotourl.com/videos/1791884903568-c7254efa-ff1e-47d1-b8bc-fc07d85edf2f.mp4';
+
+  function add() {
+    var h = document.querySelector('h1[data-i="h1"]') || document.querySelector('h1');
+    if (!h || document.getElementById('sk-vid')) return;
+
+    var box = document.createElement('div');
+    box.id = 'sk-vid';
+    box.style.cssText =
+      'width:100%;max-width:640px;aspect-ratio:16/9;margin:14px auto;' +
+      'border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:#000';
+
+    var v = document.createElement('video');
+    v.src = VIDEO_URL + '#t=0.001'; // supaya frame pertama tampil di iPhone
+    v.controls = true;
+    v.playsInline = true;
+    v.preload = 'metadata';
+    v.style.cssText = 'display:block;width:100%;height:100%;object-fit:contain';
+
+    box.appendChild(v);
+    h.insertAdjacentElement('afterend', box);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add);
+  else add();
+})();
+
