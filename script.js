@@ -491,21 +491,35 @@ card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('bef
     box.style.cssText =
       'width:100%;max-width:640px;aspect-ratio:16/9;margin:14px auto;' +
       'border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:#000';
-
-var v = document.createElement('video');
+  
+   var v = document.createElement('video');
 v.src = VIDEO_URL + '#t=0.001';
-v.muted = true;                  // wajib biar autoplay diizinkan
+v.muted = true;
 v.setAttribute('muted', '');
 v.autoplay = true;
-v.loop = true;                   // opsional, hapus kalau tidak mau berulang
-v.controls = true;
+v.loop = true;
 v.playsInline = true;
 v.setAttribute('playsinline', '');
 v.preload = 'auto';
-v.style.cssText = 'display:block;width:100%;height:100%;object-fit:contain';
+v.style.cssText = 'display:block;width:100%;height:100%;object-fit:contain;cursor:pointer';
 
+var tip = document.createElement('div');
+tip.textContent = 'Ketuk untuk putar dengan suara';
+tip.style.cssText = 'position:absolute;left:10px;bottom:10px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;pointer-events:none';
+
+box.style.position = 'relative';
 box.appendChild(v);
+box.appendChild(tip);
 h.insertAdjacentElement('afterend', box);
+
+v.addEventListener('click', function () {
+  v.muted = false;
+  v.loop = false;
+  v.controls = true;
+  v.currentTime = 0;
+  v.play();
+  tip.remove();
+}, { once: true });
 
 var p = v.play();
 if (p && p.catch) p.catch(function () {});
@@ -514,4 +528,3 @@ if (p && p.catch) p.catch(function () {});
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add);
   else add();
 })();
-
