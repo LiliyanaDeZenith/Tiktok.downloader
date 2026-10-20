@@ -238,4 +238,21 @@ card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('bef
  };
  document.body.append(dlg);$('#theme').after(btn);
 })();
-  
+/* ===== SaveTok: sponsor game RPG, tampil di ATAS bagian "Tentang SaveTok" =====
+   TEMPEL DI PALING BAWAH script.js (setelah patch WhatsApp & Deluxe kalau sudah dipasang).
+   Daftar game ada di GAMES, judul bagian di kamus teks "sp". Memakai gaya kartu yang sudah ada (.feats), CSS tidak diubah. */
+(()=>{
+ Object.assign(D.id,{sp:'Sponsor Game RPG'});
+ Object.assign(D.en,{sp:'RPG Game Sponsors'});
+ Object.assign(D.ja,{sp:'RPGゲームのスポンサー'});
+ Object.assign(D.ko,{sp:'RPG 게임 스폰서'});
+ Object.assign(D.zh,{sp:'RPG游戏赞助商'});
+ Object.assign(D.ru,{sp:'Спонсоры RPG-игр'});
+ const GAMES=['Zenless Zone Zero','Honkai Impact 3rd','Honkai: Star Rail','Genshin Impact','Wuthering Waves','Tower of Fantasy','Solo Leveling: ARISE','Neverness to Everness','Arknights: Endfield','Where Winds Meet','Blue Archive'];
+ const sec=el('section'),h=el('h2',0,t('sp')),g=el('div','feats');
+ h.dataset.i='sp'; // judul ikut ganti saat bahasa diubah
+ g.innerHTML=GAMES.map(n=>'<div><b>'+esc(n)+'</b></div>').join('');
+ sec.append(h,g);
+ $('#ab').closest('section').before(sec);
+})();
+                                                                                                               
