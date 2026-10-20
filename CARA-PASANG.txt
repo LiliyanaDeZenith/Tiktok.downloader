@@ -1,0 +1,23 @@
+CARA PASANG - Connect TikTok di Setting Nexus
+
+1. Salin TikTokConnect.tsx ke folder yang sama dengan file Setting Nexus.
+
+2. Di file Setting, tambahkan di bawah import terakhir:
+
+   import TikTokConnect from './TikTokConnect';
+
+3. Di bagian paling bawah isi menu Setting (sebelum tag penutup
+   container terakhir), tempel:
+
+   <TikTokConnect
+     onSync={(t) => updateProfile({ name: t.name, username: t.username, bio: t.bio, avatar: t.avatar })}
+   />
+
+   Ganti updateProfile dengan fungsi penyimpan profil yang sudah ada
+   di app, dan sesuaikan nama field-nya.
+
+Catatan:
+- Connect lewat username (data publik), bukan login resmi TikTok.
+- Data diambil lewat tikwm.com (tidak resmi). Kalau muncul
+  "Gagal mengambil data TikTok", coba lagi nanti.
+- Data tersimpan di localStorage dengan key "ml_tiktok".
