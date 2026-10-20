@@ -528,3 +528,348 @@ if (p && p.catch) p.catch(function () {});
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add);
   else add();
 })();
+
+/* nexus-setting.js - tombol "Nexus" baru di pojok kiri atas + panel "Setting Nexus"
+ * (isi panel: Hubungkan TikTok). Tempel di bawah kode tiktok-connect.js.
+ */
+;(function () {
+  'use strict';
+  if (document.getElementById('nxs-btn')) return;
+
+  // Ubah angka ini kalau tombol menimpa logo/menu lain
+  var TOP = 10;
+  var LEFT = 10;
+
+  function isDark() {
+    var els = [document.body, document.getElementById('root'), document.getElementById('app'), document.body.firstElementChild, document.documentElement];
+    for (var i = 0; i < els.length; i++) {
+      if (!els[i]) continue;
+      var m = getComputedStyle(els[i]).backgroundColor.match(/[\d.]+/g);
+      if (m && (m.length < 4 || +m[3] > 0.5)) return (+m[0] + +m[1] + +m[2]) / 3 < 128;
+    }
+    var f = getComputedStyle(document.body).color.match(/\d+/g) || [0, 0, 0];
+    return (+f[0] + +f[1] + +f[2]) / 3 > 128;
+  }
+
+  function init() {
+    var st = document.createElement('style');
+    st.textContent = [
+      '#nxs-btn{position:fixed;top:calc(env(safe-area-inset-top,0px) + ' + TOP + 'px);left:' + LEFT + 'px;z-index:9990;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1px solid rgba(128,128,128,.4);border-radius:999px;background:rgba(128,128,128,.25);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:inherit;font:inherit;font-size:14px;font-weight:700;cursor:pointer}',
+      '#nxs-ov{position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;display:none;align-items:flex-start;padding:calc(env(safe-area-inset-top,0px) + 56px) 12px 12px;background:rgba(0,0,0,.45)}',
+      '#nxs-panel{width:min(440px,100%);max-height:100%;overflow:auto;overscroll-behavior:contain;border:1px solid rgba(128,128,128,.4);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35)}',
+      '#nxs-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(128,128,128,.35)}',
+      '#nxs-head b{font-size:18px}',
+      '#nxs-x{border:0;background:transparent;color:inherit;font-size:24px;line-height:1;cursor:pointer;padding:0 6px}'
+    ].join('');
+    document.head.appendChild(st);
+
+    var btn = document.createElement('button');
+    btn.id = 'nxs-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Setting Nexus');
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.4" fill="currentColor"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="15" cy="17" r="2.4" fill="currentColor"/></svg><span>Nexus</span>';
+
+    var ov = document.createElement('div');
+    ov.id = 'nxs-ov';
+    var panel = document.createElement('div');
+    panel.id = 'nxs-panel';
+    var head = document.createElement('div');
+    head.id = 'nxs-head';
+    var title = document.createElement('b');
+    title.textContent = 'Setting Nexus';
+    var x = document.createElement('button');
+    x.id = 'nxs-x';
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Tutup');
+    x.textContent = '\u00d7';
+    head.appendChild(title);
+    head.appendChild(x);
+
+    // Isi panel. Menu Setting Nexus lain bisa ditambah di sini.
+    var body = document.createElement('div');
+
+    panel.appendChild(head);
+    panel.appendChild(body);
+    ov.appendChild(panel);
+    document.body.appendChild(btn);
+    document.body.appendChild(ov);
+
+    function open() {
+      var d = isDark();
+      panel.style.background = d ? '#000' : '#fff';
+      panel.style.color = d ? '#e7e9ea' : '#0f1419';
+      ov.style.display = 'flex';
+    }
+    function close() { ov.style.display = 'none'; }
+    btn.onclick = open;
+    x.onclick = close;
+    ov.onclick = function (e) { if (e.target === ov) close(); };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+
+    // Pasang bilah Hubungkan TikTok ke dalam panel
+    (function tryMount(n) {
+      if (window.mountTikTokConnect) window.mountTikTokConnect(body);
+      else if (n < 40) setTimeout(function () { tryMount(n + 1); }, 250);
+      else body.textContent = 'Kode tiktok-connect belum dipasang.';
+    })(0);
+  }
+
+  if (document.body) init();
+  else document.addEventListener('DOMContentLoaded', init);
+})();
+
+/* tiktok-connect.js
+ * Tambahan untuk menu Setting Nexus: hubungkan TikTok (bilah profil + samakan profil).
+ * Tidak mengubah tampilan lain: semua style berawalan .mltt- dan hanya muncul
+ * di dalam <div id="tiktok-connect"></div>.
+ */
+;(function () {
+  'use strict';
+
+  var KEY = 'ml_tiktok';
+  var HOUR = 3600000;
+  var GRAY = 'rgba(128,128,128,1)';
+  var LINE = 'rgba(128,128,128,.35)';
+
+  function addStyle() {
+    if (document.getElementById('mltt-style')) return;
+    var s = document.createElement('style');
+    s.id = 'mltt-style';
+    s.textContent = [
+      '.mltt{border-bottom:1px solid ' + LINE + ';padding:16px;color:inherit;font-family:inherit;box-sizing:border-box}',
+      '.mltt *{box-sizing:border-box}',
+      '.mltt-title{margin:0 0 4px;font-size:18px;font-weight:700;color:inherit}',
+      '.mltt-sub{margin:0 0 12px;font-size:14px;color:' + GRAY + '}',
+      '.mltt-msg{margin:8px 0 0;font-size:14px;color:' + GRAY + '}',
+      '.mltt-row{display:flex;gap:8px}',
+      '.mltt-input{flex:1;min-width:0;border:1px solid ' + LINE + ';border-radius:999px;background:transparent;color:inherit;padding:8px 16px;font-size:16px;font-family:inherit;outline:none}',
+      '.mltt-input:focus{border-color:#0ea5e9}',
+      '.mltt-btn{border:0;border-radius:999px;background:#0ea5e9;color:#fff;padding:8px 16px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}',
+      '.mltt-out{display:inline-flex;align-items:center;border:1px solid ' + LINE + ';border-radius:999px;background:transparent;color:inherit;padding:6px 14px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;text-decoration:none}',
+      '.mltt-btn:disabled,.mltt-out:disabled{opacity:.5;cursor:default}',
+      '.mltt-card{margin-top:12px;border:1px solid ' + LINE + ';border-radius:16px;padding:16px}',
+      '.mltt-head{display:flex;align-items:center;gap:12px}',
+      '.mltt-who{min-width:0}',
+      '.mltt-av{width:56px;height:56px;border-radius:50%;object-fit:cover;background:rgba(128,128,128,.2);flex-shrink:0}',
+      '.mltt-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.mltt-user{font-size:14px;color:' + GRAY + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.mltt-bio{margin:12px 0 0;font-size:14px;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
+      '.mltt-stats{display:grid;grid-template-columns:repeat(4,1fr);text-align:center;margin-top:12px}',
+      '.mltt-stats b{display:block}',
+      '.mltt-stats span{font-size:12px;color:' + GRAY + '}',
+      '.mltt-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}'
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function fmt(n) {
+    n = Number(n) || 0;
+    if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1).replace('.0', '') + 'K';
+    return String(n);
+  }
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; }
+  }
+  function save(p) {
+    try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) {}
+  }
+  function wipe() {
+    try { localStorage.removeItem(KEY); } catch (e) {}
+  }
+
+  // Ambil profil publik TikTok lewat username (tanpa login)
+  async function lookup(input) {
+    var m = String(input).match(/tiktok\.com\/@([\w.]+)/i);
+    var id = (m ? m[1] : String(input)).trim().replace(/^@/, '');
+    if (!id) throw new Error('empty');
+
+    var res = await fetch('https://www.tikwm.com/api/user/info?unique_id=' + encodeURIComponent(id));
+    var j = await res.json();
+    var d = (j && j.data) || {};
+    var u = d.user || (d.userInfo && d.userInfo.user);
+    var s = d.stats || (d.userInfo && d.userInfo.stats) || {};
+    if (!u) throw new Error('not found');
+
+    return {
+      username: u.uniqueId || id,
+      name: u.nickname || id,
+      bio: u.signature || '',
+      avatar: u.avatarLarger || u.avatarMedium || u.avatarThumb || '',
+      followers: s.followerCount || 0,
+      following: s.followingCount || 0,
+      likes: s.heartCount || s.heart || 0,
+      videos: s.videoCount || 0,
+      verified: !!u.verified,
+      updatedAt: Date.now()
+    };
+  }
+
+  function blobToDataUrl(b) {
+    return new Promise(function (ok, no) {
+      var fr = new FileReader();
+      fr.onload = function () { ok(String(fr.result)); };
+      fr.onerror = no;
+      fr.readAsDataURL(b);
+    });
+  }
+
+  // Link foto TikTok cepat kedaluwarsa, jadi coba simpan fotonya sebagai data URL.
+  // Kalau gagal, pakai link aslinya.
+  async function toDataUrl(url) {
+    if (!url) return url;
+    var tries = [
+      url,
+      'https://images.weserv.nl/?w=256&h=256&fit=cover&url=' + encodeURIComponent(url)
+    ];
+    for (var i = 0; i < tries.length; i++) {
+      try {
+        var r = await fetch(tries[i]);
+        var b = await r.blob();
+        if (r.ok && /^image\//.test(b.type)) return await blobToDataUrl(b);
+      } catch (e) {}
+    }
+    return url;
+  }
+
+  function mount(box) {
+    if (!box || box.getAttribute('data-mltt')) return;
+    box.setAttribute('data-mltt', '1');
+    addStyle();
+
+    var p = load();
+    var typed = '';
+    var busy = false;
+    var msg = '';
+
+    async function connect(name, silent) {
+      busy = true;
+      if (!silent) msg = '';
+      draw();
+      try {
+        p = await lookup(name);
+        save(p);
+        typed = '';
+      } catch (e) {
+        if (!silent) msg = 'Gagal mengambil data TikTok. Periksa username atau coba lagi nanti.';
+      }
+      busy = false;
+      draw();
+    }
+
+    async function sync() {
+      var fn = window.onTikTokSync;
+      if (typeof fn !== 'function') {
+        msg = 'Belum tersambung ke profil app. Lihat CARA-PASANG.txt (bagian onTikTokSync).';
+        draw();
+        return;
+      }
+      busy = true;
+      draw();
+      try {
+        fn({ name: p.name, username: p.username, bio: p.bio, avatar: await toDataUrl(p.avatar) });
+        msg = 'Profil sudah disamakan dengan TikTok.';
+      } catch (e) {
+        msg = 'Gagal menyamakan profil.';
+      }
+      busy = false;
+      draw();
+    }
+
+    function draw() {
+      box.textContent = '';
+      var sec = el('section', 'mltt');
+      sec.appendChild(el('h3', 'mltt-title', 'Hubungkan TikTok'));
+
+      if (!p) {
+        sec.appendChild(el('p', 'mltt-sub', 'Masukkan username TikTok untuk menampilkan pengikut dan mengikuti di profilmu.'));
+        var row = el('div', 'mltt-row');
+        var inp = el('input', 'mltt-input');
+        var go = el('button', 'mltt-btn', busy ? 'Memuat...' : 'Hubungkan');
+        inp.type = 'text';
+        inp.placeholder = '@username atau link TikTok';
+        inp.setAttribute('autocapitalize', 'none');
+        inp.setAttribute('autocomplete', 'off');
+        inp.spellcheck = false;
+        inp.value = typed;
+        go.disabled = busy || !typed.trim();
+        inp.oninput = function () { typed = inp.value; go.disabled = busy || !typed.trim(); };
+        inp.onkeydown = function (e) { if (e.key === 'Enter' && typed.trim() && !busy) connect(typed); };
+        go.onclick = function () { connect(typed); };
+        row.appendChild(inp);
+        row.appendChild(go);
+        sec.appendChild(row);
+      } else {
+        var card = el('div', 'mltt-card');
+
+        var head = el('div', 'mltt-head');
+        var img = el('img', 'mltt-av');
+        img.alt = '';
+        img.src = p.avatar;
+        img.onerror = function () { img.style.visibility = 'hidden'; };
+        var who = el('div', 'mltt-who');
+        who.appendChild(el('div', 'mltt-name', p.name + (p.verified ? ' \u2713' : '')));
+        who.appendChild(el('div', 'mltt-user', '@' + p.username));
+        head.appendChild(img);
+        head.appendChild(who);
+        card.appendChild(head);
+
+        if (p.bio) card.appendChild(el('p', 'mltt-bio', p.bio));
+
+        var stats = el('div', 'mltt-stats');
+        [['Pengikut', p.followers], ['Mengikuti', p.following], ['Suka', p.likes], ['Video', p.videos]].forEach(function (x) {
+          var c = el('div');
+          c.appendChild(el('b', '', fmt(x[1])));
+          c.appendChild(el('span', '', x[0]));
+          stats.appendChild(c);
+        });
+        card.appendChild(stats);
+
+        var acts = el('div', 'mltt-acts');
+        var bSync = el('button', 'mltt-btn', 'Samakan profil dengan TikTok');
+        bSync.disabled = busy;
+        bSync.onclick = sync;
+        var link = el('a', 'mltt-out', 'TikTok');
+        link.href = 'https://www.tiktok.com/@' + encodeURIComponent(p.username);
+        link.target = '_blank';
+        link.rel = 'noreferrer';
+        var bRef = el('button', 'mltt-out', busy ? 'Memuat...' : 'Perbarui');
+        bRef.disabled = busy;
+        bRef.onclick = function () { connect(p.username); };
+        var bOff = el('button', 'mltt-out', 'Putuskan');
+        bOff.onclick = function () { wipe(); p = null; msg = ''; draw(); };
+        acts.appendChild(bSync);
+        acts.appendChild(link);
+        acts.appendChild(bRef);
+        acts.appendChild(bOff);
+        card.appendChild(acts);
+
+        sec.appendChild(card);
+      }
+
+      if (msg) sec.appendChild(el('p', 'mltt-msg', msg));
+      box.appendChild(sec);
+    }
+
+    draw();
+    // Perbarui angka pengikut otomatis kalau data sudah lebih dari 1 jam
+    if (p && Date.now() - p.updatedAt > HOUR) connect(p.username, true);
+  }
+
+  function scan() {
+    mount(document.getElementById('tiktok-connect'));
+  }
+
+  window.mountTikTokConnect = mount;
+  scan();
+  document.addEventListener('DOMContentLoaded', scan);
+  new MutationObserver(scan).observe(document.documentElement, { childList: true, subtree: true });
+})();
