@@ -492,15 +492,23 @@ card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('bef
       'width:100%;max-width:640px;aspect-ratio:16/9;margin:14px auto;' +
       'border:1px solid var(--bd);border-radius:18px;overflow:hidden;background:#000';
 
-    var v = document.createElement('video');
-    v.src = VIDEO_URL + '#t=0.001'; // supaya frame pertama tampil di iPhone
-    v.controls = true;
-    v.playsInline = true;
-    v.preload = 'metadata';
-    v.style.cssText = 'display:block;width:100%;height:100%;object-fit:contain';
+var v = document.createElement('video');
+v.src = VIDEO_URL + '#t=0.001';
+v.muted = true;                  // wajib biar autoplay diizinkan
+v.setAttribute('muted', '');
+v.autoplay = true;
+v.loop = true;                   // opsional, hapus kalau tidak mau berulang
+v.controls = true;
+v.playsInline = true;
+v.setAttribute('playsinline', '');
+v.preload = 'auto';
+v.style.cssText = 'display:block;width:100%;height:100%;object-fit:contain';
 
-    box.appendChild(v);
-    h.insertAdjacentElement('afterend', box);
+box.appendChild(v);
+h.insertAdjacentElement('afterend', box);
+
+var p = v.play();
+if (p && p.catch) p.catch(function () {});
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add);
