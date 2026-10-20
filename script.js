@@ -339,7 +339,7 @@ card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('bef
   ['Wuthering Waves',6475033368,'wuthering','kuro'],
   ['Tower of Fantasy',1601586278,'tower of fantasy','perfect world|level infinite|hotta|tencent'],
   ['Solo Leveling: ARISE',1662742277,'solo leveling','netmarble'],
-  ['Neverness to Everness',0,'neverness','perfect world|hotta'],
+  ['Neverness to Everness',6754593077,'neverness','perfect world|hotta|n2e'],
   ['Arknights: Endfield',6752642477,'endfield','gryph'],
   ['Where Winds Meet',6472396866,'where winds','netease'],
   ['Blue Archive',1571873795,'blue archive','nexon']
