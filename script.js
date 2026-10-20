@@ -318,4 +318,50 @@ card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('bef
  applyLang=()=>{_al();bar()};
  $('#msg').after(bx);document.body.append(dlg,ad);bar();
 })();
-                     
+/* ===== SaveTok: sponsor game RPG berbentuk kartu + ikon resmi (MENGGANTIKAN patch sponsor sebelumnya) =====
+   PASANG: hapus blok sponsor lama (baris 240-256), lalu tempel kode ini di baris 240.
+   Belum pernah memasang yang lama? Tempel di paling bawah script.js.
+   Ikon diambil langsung dari halaman resmi App Store (iTunes API milik Apple), jadi selalu sama dengan ikon aslinya.
+   Tiap ikon dicek dulu (nama app harus cocok). Kalau tidak cocok atau gagal dimuat, kartu menampilkan huruf awal, bukan ikon lain. */
+(()=>{
+ Object.assign(D.id,{sp:'Sponsor Game RPG'});
+ Object.assign(D.en,{sp:'RPG Game Sponsors'});
+ Object.assign(D.ja,{sp:'RPGゲームのスポンサー'});
+ Object.assign(D.ko,{sp:'RPG 게임 스폰서'});
+ Object.assign(D.zh,{sp:'RPG游戏赞助商'});
+ Object.assign(D.ru,{sp:'Спонсоры RPG-игр'});
+ // [nama tampil, ID App Store (0 = cari lewat nama), kata kunci nama app, kata kunci publisher (hanya untuk pencarian cadangan)]
+ const G=[
+  ['Zenless Zone Zero',1606356401,'zenless','cognosphere|hoyoverse|mihoyo'],
+  ['Honkai Impact 3rd',1336342304,'honkai impact','cognosphere|hoyoverse|mihoyo'],
+  ['Honkai: Star Rail',1599719154,'star rail','cognosphere|hoyoverse|mihoyo'],
+  ['Genshin Impact',1517783697,'genshin','cognosphere|hoyoverse|mihoyo'],
+  ['Wuthering Waves',6475033368,'wuthering','kuro'],
+  ['Tower of Fantasy',1601586278,'tower of fantasy','perfect world|level infinite|hotta|tencent'],
+  ['Solo Leveling: ARISE',1662742277,'solo leveling','netmarble'],
+  ['Neverness to Everness',0,'neverness','perfect world|hotta'],
+  ['Arknights: Endfield',6752642477,'endfield','gryph'],
+  ['Where Winds Meet',6472396866,'where winds','netease'],
+  ['Blue Archive',1571873795,'blue archive','nexon']
+ ];
+ $$('[data-i="sp"]').forEach(e=>e.closest('section').remove()); // buang bagian sponsor versi lama kalau masih ada
+ document.head.append(el('style',0,'.spn{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}.spn div{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}.spn b{font-size:13px;line-height:1.25}.spn img,.spn i{width:56px;height:56px;border-radius:13px;object-fit:cover}.spn i{display:grid;place-items:center;background:var(--bg);border:1px solid var(--bd);color:var(--mut);font:700 22px/1 system-ui}'));
+ const sec=el('section'),h=el('h2',0,t('sp')),g=el('div','feats spn');
+ h.dataset.i='sp';
+ g.innerHTML=G.map(x=>'<div><i>'+esc(x[0][0])+'</i><b>'+esc(x[0])+'</b></div>').join('');
+ sec.append(h,g);
+ $('#ab').closest('section').before(sec);
+ const ICO=window.STIC=window.STIC||{},U={};
+ const paint=(i,u)=>{ICO[G[i][0]]=u;const im=el('img');im.alt='';im.loading='lazy';im.onerror=()=>{im.onerror=null;im.src=u};im.src=u.replace('100x100','200x200');g.children[i].firstChild.replaceWith(im)};
+ const save=(i,u)=>{U[i]=u;paint(i,u);S.s('spic',{t:Date.now(),u:U})};
+ const jp=(u,f)=>{const n='__stj'+Math.random().toString(36).slice(2),s=el('script');window[n]=d=>{delete window[n];s.remove();f(d&&d.results||[])};s.onerror=()=>{delete window[n];s.remove();f([])};s.src=u+'&callback='+n;document.head.append(s)};
+ const nm=r=>(r.trackName||'').toLowerCase(),pb=r=>((r.sellerName||'')+' '+(r.artistName||'')).toLowerCase(),okn=(i,r)=>!!r.artworkUrl100&&nm(r).includes(G[i][2]);
+ const C=S.g('spic',null);
+ if(C&&Date.now()-C.t<6048e5&&Object.keys(C.u).length===G.length)Object.keys(C.u).forEach(i=>{U[i]=C.u[i];paint(+i,C.u[i])}); // pakai cache 7 hari
+ else jp('https://itunes.apple.com/lookup?country=us&id='+G.map(x=>x[1]).filter(Boolean).join(','),rs=>G.forEach((x,i)=>{
+  const r=rs.find(r=>r.trackId==x[1]&&okn(i,r));
+  if(r)save(i,r.artworkUrl100);
+  else jp('https://itunes.apple.com/search?country=us&entity=software&limit=10&term='+encodeURIComponent(x[0]),ss=>{const q=ss.find(r=>okn(i,r)&&new RegExp(x[3]).test(pb(r)));if(q)save(i,q.artworkUrl100)});
+ }));
+})();
+   
