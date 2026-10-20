@@ -202,3 +202,40 @@ ACT.wa=async(d,b)=>{
 const _card=card; // tambah tombol WhatsApp di baris tombol hasil, kode lama tidak diubah
 card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('beforeend','<button type="button" class="btn" data-k="wa">'+esc(t('wa'))+'</button>');return E};
                                                    
+/* ===== SaveTok: menu setting "Deluxe" (hubungi developer + rating & saran fitur) =====
+   TEMPEL DI PALING BAWAH script.js: baris 178 (kalau patch WhatsApp belum dipasang) atau baris 204 (kalau sudah).
+   Ganti email di variabel MAIL kalau perlu. Tanpa server: tombol kirim membuka aplikasi email dengan isi sudah terisi. */
+(()=>{
+ const MAIL='websitescarlett@gmail.com';
+ Object.assign(D.id,{dx_c:'Hubungi Developer',dx_mail:'Kirim Email',dx_copy:'Salin Email',dx_cp:'Email disalin ✓',dx_r:'Rating & Saran Fitur',dx_fp:'Tulis saran fitur (opsional)…',dx_s:'Kirim',dx_rn:'Pilih bintang atau tulis saran dulu.',dx_ok:'Terima kasih! Tekan Kirim di aplikasi email-mu.',dx_x:'Tutup'});
+ Object.assign(D.en,{dx_c:'Contact Developer',dx_mail:'Send Email',dx_copy:'Copy Email',dx_cp:'Email copied ✓',dx_r:'Rating & Feature Suggestion',dx_fp:'Write a feature suggestion (optional)…',dx_s:'Send',dx_rn:'Pick a star or write a suggestion first.',dx_ok:'Thank you! Press Send in your email app.',dx_x:'Close'});
+ const dlg=el('dialog'),btn=el('button','btn sm','⚙');let rate=0;
+ dlg.id='dxd';btn.type='button';btn.id='dxb';btn.title='Deluxe';btn.setAttribute('aria-label','Deluxe');
+ const say=m=>{dlg.querySelector('#dxm').textContent=m};
+ const paint=()=>dlg.querySelectorAll('[data-s]').forEach(b=>{const on=+b.dataset.s<=rate;b.classList.toggle('pri',on);b.textContent=on?'★':'☆'});
+ const send=(s,b)=>{location.href='mailto:'+MAIL+'?subject='+encodeURIComponent(s)+'&body='+encodeURIComponent(b)};
+ const B=(a,k,x)=>`<button type="button" class="btn${x||''}" data-a="${a}">${esc(t(k))}</button>`;
+ const html=()=>`<h3>⚙ Deluxe</h3><b>${esc(t('dx_c'))}</b><br><small>${MAIL}</small>`
+  +`<div class="fr">${B('mail','dx_mail',' pri')}${B('copy','dx_copy')}</div>`
+  +`<div style="border-top:1px solid var(--bd);margin:16px 0"></div><b>${esc(t('dx_r'))}</b>`
+  +`<div class="fr">${[1,2,3,4,5].map(n=>`<button type="button" class="btn" style="font-size:20px" data-s="${n}">☆</button>`).join('')}</div>`
+  +`<textarea id="dxs" rows="2" maxlength="500" placeholder="${esc(t('dx_fp'))}" style="margin-top:10px"></textarea>`
+  +`<div class="fr">${B('send','dx_s')}</div><p class="mut" id="dxm" role="status"></p><div class="fr">${B('x','dx_x')}</div>`;
+ btn.onclick=()=>{rate=S.g('dxrate',0);dlg.innerHTML=html();paint();if(!dlg.open)dlg.showModal()};
+ dlg.onclick=async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const a=b.dataset.a,v=dlg.querySelector('#dxs').value.trim();
+  if(b.dataset.s){rate=+b.dataset.s;paint();say('')}
+  else if(a==='x')dlg.close();
+  else if(a==='mail')send('Hubungi Developer SaveTok','Halo developer SaveTok,\n\n');
+  else if(a==='copy'){try{await navigator.clipboard.writeText(MAIL);say(t('dx_cp'))}catch(x){say(MAIL)}}
+  else if(a==='send'){
+   if(!rate&&!v)return say(t('dx_rn'));
+   if(rate)S.s('dxrate',rate);
+   send('SaveTok '+[rate&&'Rating '+rate+'/5',v&&'Saran Fitur'].filter(Boolean).join(' + '),[rate&&'Rating: '+'★'.repeat(rate)+'☆'.repeat(5-rate)+' ('+rate+'/5)',v&&'Saran Fitur:\n'+v].filter(Boolean).join('\n\n'));
+   say(t('dx_ok'));
+  }
+ };
+ document.body.append(dlg);$('#theme').after(btn);
+})();
+  
