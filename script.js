@@ -261,14 +261,14 @@ card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('bef
  const dlg=el('dialog'),ad=el('dialog'),bx=el('div');
  let note='',t0={},cur=ADS[0],iv=0;
  bx.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:14px';
- const bar=()=>{bx.innerHTML='<span class="mut">'+(prem()?'👑 '+esc(t('pr_on')):'⚡ '+esc(t('pr_tk'))+' <b style="color:var(--tx)">'+tok().n+'/'+CAP+'</b>')+'</span><button type="button" class="btn sm">'+esc(t('pr_btn'))+'</button>'};
+ const bar=()=>{bx.innerHTML='<span class="mut">'+(prem()?' Luxe Active '+esc(t('pr_on')):' Mora '+esc(t('pr_tk'))+' <b style="color:var(--tx)">'+tok().n+'/'+CAP+'</b>')+'</span><button type="button" class="btn sm">'+esc(t('pr_btn'))+'</button>'};
  const say=m=>{dlg.querySelector('#prn').textContent=m};
  const draw=()=>{
   const p=gp(),lock=!(p.wa&&p.tt&&p.gm);
   const row=(n,k,l,b)=>'<div style="margin-top:14px"><b>'+n+'. '+esc(t(l))+'</b>'+(p[k]?' ✓':b)+'</div>';
   const pair=k=>'<div class="fr">'+btn('pr_open','go',k,'pri')+btn('pr_ok','ok',k)+'</div>';
   const games='<div class="fr">'+GM.map((g,i)=>'<button type="button" class="btn" data-a="game" data-i="'+i+'" title="'+esc(g[0])+'" aria-label="'+esc(g[0])+'" style="padding:6px">'+(im(g[0],36)||esc(g[1]))+'</button>').join('')+'</div><div class="fr">'+btn('pr_ok','ok','gm')+'</div>';
-  dlg.innerHTML='<h3>👑 Premium</h3><p class="mut" id="prn">'+esc(note||t('pr_d'))+'</p>'
+  dlg.innerHTML='<h3>Luxe Active Premium</h3><p class="mut" id="prn">'+esc(note||t('pr_d'))+'</p>'
    +row(1,'wa','pr_wa',pair('wa'))+row(2,'tt','pr_tt',pair('tt'))+row(3,'gm','pr_gm',games)
    +'<div style="margin-top:14px"><b>4. '+esc(t('pr_ad'))+'</b> <span class="mut">'+(p.ad>=ADN?'✓':p.ad+'/'+ADN)+'</span>'
    +(p.ad>=ADN?'':'<div class="fr">'+btn('pr_watch','ad','','pri',lock?' disabled':'')+'</div>'+(lock?'<small>'+esc(t('pr_lock'))+'</small>':''))+'</div>'
