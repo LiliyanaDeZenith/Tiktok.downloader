@@ -528,3 +528,431 @@ if (p && p.catch) p.catch(function () {});
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add);
   else add();
 })();
+// UPDATE: menu "Nexus" di Pengaturan, tepat di bawah "AI Asisten"
+// Pencarian ala Google untuk TikTok: profil, bio, pengikut, mengikuti, teman, suka,
+// caption, hashtag, video/foto, dan audio dari tautan. Data dari API tikwm.com.
+// Tempel di paling bawah script.js, setelah baris 530 (penutup "})();" terakhir)
+
+;(function () {
+  var ITEM = 'sk-nx-item';
+  var API = 'https://www.tikwm.com';
+  var last = 0, token = 0, items = [], keepOverflow = '';
+
+  /* ---------- alat bantu ---------- */
+  function $(s) { return document.querySelector(s); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function letters(s) { return String(s).toLowerCase().replace(/[^a-z]/g, ''); }
+  function abs(u) {
+    if (!u) return '';
+    if (u.indexOf('//') === 0) return 'https:' + u;
+    return u.charAt(0) === '/' ? API + u : u;
+  }
+  function num(n) {
+    n = Number(n) || 0;
+    var u = [[1e9, ' M'], [1e6, ' jt'], [1e3, ' rb']];
+    for (var i = 0; i < u.length; i++) {
+      if (n >= u[i][0]) return (n / u[i][0]).toFixed(1).replace('.', ',').replace(/,0$/, '') + u[i][1];
+    }
+    return String(n);
+  }
+  function tags(t) {
+    return (String(t || '').match(/#[^\s#]+/g) || []).map(function (x) {
+      return x.replace(/[.,!?;:)\]]+$/, '');
+    }).filter(function (x) { return x.length > 1; });
+  }
+  function msg(e) {
+    var m = String((e && e.message) || '');
+    if (/limit/i.test(m)) return 'Terlalu banyak permintaan. Tunggu beberapa detik, lalu coba lagi.';
+    if (/url|pars/i.test(m)) return 'Link tidak dikenali. Periksa link TikTok-nya dan pastikan videonya tidak privat.';
+    return 'Data tidak ditemukan atau gagal dimuat. Periksa koneksi, lalu coba lagi.';
+  }
+
+  /* ---------- data (API tikwm.com, diberi jeda karena ada limit per detik) ---------- */
+  function call(path, params) {
+    var wait = Math.max(0, last + 1100 - Date.now());
+    last = Date.now() + wait;
+    return new Promise(function (ok) { setTimeout(ok, wait); }).then(function () {
+      return fetch(API + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body: new URLSearchParams(params)
+      });
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || j.code !== 0 || !j.data) throw new Error((j && j.msg) || 'kosong');
+      return j.data;
+    });
+  }
+  function api(path, params, n) {
+    n = n || 0;
+    return call(path, params).catch(function (e) {
+      if (n >= 3 || !/limit/i.test(e.message)) throw e;
+      return new Promise(function (ok) { setTimeout(ok, 1500 * (n + 1)); }).then(function () {
+        return api(path, params, n + 1);
+      });
+    });
+  }
+
+  // Link video / link pendek -> post, link profil atau @username -> user, selain itu -> kata kunci
+  function parse(q) {
+    q = String(q || '').trim();
+    var u = q.match(/https?:\/\/\S*tiktok\.com\S*/i);
+    if (u) q = u[0];
+    var m = q.match(/tiktok\.com\/@([\w.]+)\/?(?:[?#].*)?$/i);
+    if (m) return { t: 'user', id: m[1] };
+    if (/tiktok\.com/i.test(q)) return { t: 'post', url: /^https?:/i.test(q) ? q : 'https://' + q };
+    if (/^@[\w.]{2,24}$/.test(q)) return { t: 'user', id: q.slice(1) };
+    return q ? { t: 'find', q: q } : null;
+  }
+
+  /* ---------- tampilan: warna ikut tema situs, tidak mengubah elemen yang sudah ada ---------- */
+  function theme() {
+    function rgb(c) {
+      var m = /^rgba?\(/i.test(c) ? String(c).match(/[\d.]+/g) : null;
+      return m ? { r: +m[0], g: +m[1], b: +m[2], a: m.length > 3 ? +m[3] : 1 } : null;
+    }
+    var f = rgb(getComputedStyle(document.body).color);
+    var b = rgb(getComputedStyle(document.body).backgroundColor);
+    if (!b || b.a < 0.9) b = rgb(getComputedStyle(document.documentElement).backgroundColor);
+    var dark = f ? (f.r * 299 + f.g * 587 + f.b * 114) / 1000 > 140 :
+      !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    if (!b || b.a < 0.9) b = dark ? { r: 12, g: 12, b: 16 } : { r: 255, g: 255, b: 255 };
+    if (!f) f = dark ? { r: 245, g: 245, b: 248 } : { r: 18, g: 18, b: 22 };
+    return '--nx-bg:rgb(' + b.r + ',' + b.g + ',' + b.b + ');--nx-fg:rgb(' + f.r + ',' + f.g + ',' + f.b + ')';
+  }
+
+  var CSS = `
+#sk-nx{position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483000;display:flex;flex-direction:column;background:var(--nx-bg);color:var(--nx-fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--nx-bd:var(--bd,rgba(128,128,128,.32))}
+#sk-nx *{box-sizing:border-box}
+#sk-nx button,#sk-nx input{font:inherit}
+#sk-nx button{color:inherit;cursor:pointer}
+#sk-nx .sk-nx-top{display:flex;align-items:center;padding:calc(6px + env(safe-area-inset-top,0px)) 6px 6px 16px;border-bottom:1px solid var(--nx-bd)}
+#sk-nx .sk-nx-top b{flex:1;font-size:17px}
+#sk-nx .sk-nx-x{background:none;border:0;font-size:28px;line-height:1;padding:6px 14px}
+#sk-nx .sk-nx-bar{display:flex;gap:8px;padding:12px}
+#sk-nx .sk-nx-bar input{flex:1;min-width:0;padding:12px 18px;border-radius:999px;border:1px solid var(--nx-bd);background:rgba(128,128,128,.12);color:inherit;outline:0}
+#sk-nx .sk-nx-bar input:focus{border-color:var(--nx-fg)}
+#sk-nx .sk-nx-res{flex:1;overflow:auto;padding:0 12px 32px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#sk-nx .sk-nx-dim{opacity:.65}
+#sk-nx #sk-nx-st{margin:4px 2px 14px;font-size:14px}
+#sk-nx #sk-nx-st.bad{opacity:1;color:#ff6b81}
+#sk-nx .sk-nx-card{border:1px solid var(--nx-bd);border-radius:16px;padding:14px;margin-bottom:12px;background:rgba(128,128,128,.08)}
+#sk-nx .sk-nx-who{display:flex;align-items:center;gap:12px}
+#sk-nx .sk-nx-who img{width:64px;height:64px;border-radius:50%;object-fit:cover;flex:none;background:rgba(128,128,128,.25)}
+#sk-nx .sk-nx-who b{font-size:17px}
+#sk-nx .sk-nx-v{display:inline-block;width:16px;height:16px;margin-left:6px;border-radius:50%;background:#20a5f5;color:#fff;font-size:11px;font-style:normal;line-height:16px;text-align:center;vertical-align:1px}
+#sk-nx .sk-nx-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px;margin:14px 0 10px;text-align:center}
+#sk-nx .sk-nx-stats b{display:block;font-size:16px}
+#sk-nx .sk-nx-stats span{font-size:12px;opacity:.65}
+#sk-nx .sk-nx-bio,#sk-nx .sk-nx-cap{margin:8px 0;white-space:pre-wrap;word-break:break-word}
+#sk-nx .sk-nx-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#sk-nx .sk-nx-b{display:inline-block;padding:9px 16px;border-radius:999px;border:1px solid var(--nx-bd);background:transparent;color:inherit;font-size:14px;font-weight:600;text-align:center;text-decoration:none}
+#sk-nx .sk-nx-b.p{background:var(--nx-fg);border-color:var(--nx-fg);color:var(--nx-bg)}
+#sk-nx .sk-nx-b:disabled{opacity:.6}
+#sk-nx .sk-nx-note{margin-top:10px;font-size:12px}
+#sk-nx .sk-nx-tags{margin:6px 0 2px}
+#sk-nx .sk-nx-tags a{display:inline-block;margin:0 6px 6px 0;padding:3px 10px;border-radius:999px;background:rgba(128,128,128,.18);color:inherit;font-size:13px;text-decoration:none}
+#sk-nx .sk-nx-meta{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0 12px;font-size:13px;opacity:.7}
+#sk-nx video{display:block;width:100%;max-height:70vh;border-radius:12px;background:#000}
+#sk-nx .sk-nx-au{margin-top:14px}
+#sk-nx .sk-nx-au audio{display:block;width:100%;margin-top:6px}
+#sk-nx .sk-nx-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px}
+#sk-nx .sk-nx-ph{position:relative}
+#sk-nx .sk-nx-ph img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px}
+#sk-nx .sk-nx-ph button{position:absolute;right:6px;bottom:6px;width:34px;height:34px;border:0;border-radius:50%;background:rgba(0,0,0,.65);color:#fff}
+#sk-nx .sk-nx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#sk-nx .sk-nx-tile{position:relative;padding:0;border:0;border-radius:10px;overflow:hidden;aspect-ratio:9/16;background:rgba(128,128,128,.2)}
+#sk-nx .sk-nx-tile img{display:block;width:100%;height:100%;object-fit:cover}
+#sk-nx .sk-nx-tile span{position:absolute;left:6px;bottom:5px;font-size:12px;color:#fff;text-shadow:0 1px 3px #000}
+`;
+
+  function injectCss() {
+    if ($('#sk-nx-css')) return;
+    var s = document.createElement('style');
+    s.id = 'sk-nx-css';
+    s.textContent = CSS;
+    document.head.appendChild(s);
+  }
+
+  function st(text, bad) {
+    var el = $('#sk-nx-st');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'sk-nx-dim' + (bad ? ' bad' : '');
+    el.style.display = text ? '' : 'none';
+  }
+  function stat(label, v) {
+    return '<div><b>' + (v == null ? '-' : num(v)) + '</b><span>' + label + '</span></div>';
+  }
+  function dlBtn(label, url, name, main) {
+    return '<button type="button" class="sk-nx-b' + (main ? ' p' : '') + '" data-dl="' + esc(url) +
+      '" data-n="' + esc(name) + '">' + label + '</button>';
+  }
+
+  /* ---------- kartu profil ---------- */
+  function prof(d) {
+    var P = $('#sk-nx-prof');
+    if (!P) return;
+    var u = d.user || {}, s = d.stats || {}, id = u.uniqueId || '';
+    var url = 'https://www.tiktok.com/@' + encodeURIComponent(id);
+    P.setAttribute('data-u', id.toLowerCase());
+    P.innerHTML =
+      '<div class="sk-nx-card">' +
+        '<div class="sk-nx-who">' +
+          '<img referrerpolicy="no-referrer" alt="" src="' + esc(abs(u.avatarLarger || u.avatarMedium || u.avatarThumb)) + '">' +
+          '<div><b>' + esc(u.nickname || id) + '</b>' + (u.verified ? '<i class="sk-nx-v">\u2713</i>' : '') +
+          '<div class="sk-nx-dim">@' + esc(id) + (u.privateAccount ? ' \uD83D\uDD12' : '') + '</div></div>' +
+        '</div>' +
+        '<div class="sk-nx-stats">' +
+          stat('Pengikut', s.followerCount) + stat('Mengikuti', s.followingCount) +
+          stat('Teman', s.friendCount) + stat('Suka', s.heartCount != null ? s.heartCount : s.heart) +
+          stat('Video', s.videoCount) +
+        '</div>' +
+        '<div class="sk-nx-bio' + (u.signature ? '' : ' sk-nx-dim') + '">' + (u.signature ? esc(u.signature) : 'Bio kosong') + '</div>' +
+        '<div class="sk-nx-acts">' +
+          '<a class="sk-nx-b p" target="_blank" rel="noopener" href="' + url + '">Ikuti di TikTok</a>' +
+          '<a class="sk-nx-b" target="_blank" rel="noopener" href="' + url + '">Kirim pesan di TikTok</a>' +
+          '<button type="button" class="sk-nx-b" data-copy="' + url + '">Salin link profil</button>' +
+        '</div>' +
+        '<div class="sk-nx-note sk-nx-dim">Ikuti dan kirim pesan dilakukan langsung di TikTok, perlu login akun kamu.</div>' +
+      '</div>';
+  }
+
+  /* ---------- kartu postingan: caption, hashtag, video/foto, audio ---------- */
+  function show(p) {
+    var D = $('#sk-nx-det'), P = $('#sk-nx-prof');
+    if (!p || !D) return;
+    var my = token;
+    var id = p.id || p.video_id || '', a = p.author || {}, cap = p.title || '';
+    var ht = tags(cap), txt = cap.replace(/#[^\s#]+/g, '').replace(/\s+/g, ' ').trim();
+    var imgs = (p.images || []).map(abs), mu = p.music_info || {};
+    var au = abs(mu.play || p.music), hd = abs(p.hdplay), sd = abs(p.play);
+    var when = p.create_time
+      ? new Date(p.create_time * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '';
+    var h = '<div class="sk-nx-card">';
+    if (a.unique_id) h += '<div class="sk-nx-dim">@' + esc(a.unique_id) + (a.nickname ? ' (' + esc(a.nickname) + ')' : '') + '</div>';
+    h += '<div class="sk-nx-cap">' + (txt ? esc(txt) : '<span class="sk-nx-dim">Tanpa caption</span>') + '</div>';
+    if (ht.length) {
+      h += '<div class="sk-nx-tags">' + ht.map(function (x) {
+        return '<a target="_blank" rel="noopener" href="https://www.tiktok.com/tag/' + encodeURIComponent(x.slice(1)) + '">' + esc(x) + '</a>';
+      }).join('') + '</div>';
+    }
+    h += '<div class="sk-nx-meta">' + (when ? '<span>' + when + '</span>' : '') +
+      '<span>\u25B6 ' + num(p.play_count) + '</span><span>\u2665 ' + num(p.digg_count) + '</span>' +
+      '<span>\uD83D\uDCAC ' + num(p.comment_count) + '</span><span>\u21AA ' + num(p.share_count) + '</span>' +
+      '<span>\uD83D\uDD16 ' + num(p.collect_count) + '</span></div>';
+    if (imgs.length) {
+      h += '<div class="sk-nx-imgs">' + imgs.map(function (u, i) {
+        return '<div class="sk-nx-ph"><img loading="lazy" referrerpolicy="no-referrer" alt="" src="' + esc(u) + '">' +
+          '<button type="button" aria-label="Unduh foto ' + (i + 1) + '" data-dl="' + esc(u) +
+          '" data-n="nexus-' + esc(id) + '-' + (i + 1) + '.jpg">\u2B07</button></div>';
+      }).join('') + '</div>';
+    } else if (hd || sd) {
+      h += '<video controls playsinline preload="metadata" poster="' + esc(abs(p.cover || p.origin_cover)) +
+        '" src="' + esc(hd || sd) + '"></video>';
+    }
+    if (au) {
+      h += '<div class="sk-nx-au"><b>\u266B ' + esc(mu.title || 'Audio') + '</b>' +
+        (mu.author ? ' <span class="sk-nx-dim">' + esc(mu.author) + '</span>' : '') +
+        '<audio controls preload="none" src="' + esc(au) + '"></audio></div>';
+    }
+    h += '<div class="sk-nx-acts">';
+    if (!imgs.length && hd) h += dlBtn('Unduh video HD', hd, 'nexus-' + id + '-hd.mp4', true);
+    if (!imgs.length && sd && sd !== hd) h += dlBtn('Unduh video', sd, 'nexus-' + id + '.mp4', !hd);
+    if (au) h += dlBtn('Unduh audio MP3', au, 'nexus-' + id + '.mp3');
+    h += '<button type="button" class="sk-nx-b" data-copy="' + esc(cap) + '">Salin caption</button></div></div>';
+    D.innerHTML = h;
+    var res = $('.sk-nx-res');
+    if (res) res.scrollTop = 0;
+
+    // profil pemilik postingan (pengikut, bio, dst.) dimuat menyusul
+    var u = String(a.unique_id || '').toLowerCase();
+    if (u && P && P.getAttribute('data-u') !== u) {
+      P.setAttribute('data-u', u);
+      P.innerHTML = '';
+      api('/api/user/info', { unique_id: a.unique_id }).then(function (d) {
+        if (my === token) prof(d);
+      }).catch(function () {
+        if (my === token) P.removeAttribute('data-u');
+      });
+    }
+  }
+
+  function grid(arr) {
+    var L = $('#sk-nx-list');
+    if (!L) return;
+    items = arr;
+    L.innerHTML = arr.length ? '<div class="sk-nx-grid">' + arr.map(function (p, i) {
+      var photo = p.images && p.images.length;
+      return '<button type="button" class="sk-nx-tile" data-i="' + i + '">' +
+        '<img loading="lazy" referrerpolicy="no-referrer" alt="" src="' + esc(abs(p.cover || p.origin_cover)) + '">' +
+        '<span>' + (photo ? '\uD83D\uDDBC ' : '\u25B6 ') + num(p.play_count) + '</span></button>';
+    }).join('') + '</div>' : '';
+  }
+
+  /* ---------- pencarian ---------- */
+  function run(q) {
+    var k = parse(q);
+    if (!k) return;
+    var my = ++token;
+    var ok = function () { return my === token; };
+    var P = $('#sk-nx-prof'), D = $('#sk-nx-det'), L = $('#sk-nx-list');
+    if (!P || !D || !L) return;
+    P.innerHTML = D.innerHTML = L.innerHTML = '';
+    P.removeAttribute('data-u');
+    items = [];
+    st('Mencari\u2026');
+    var fail = function (e) { if (ok()) st(msg(e), true); };
+
+    if (k.t === 'post') {
+      api('/api/', { url: k.url, hd: 1, HD: 1 }).then(function (p) {
+        if (ok()) { st(''); show(p); }
+      }).catch(fail);
+    } else if (k.t === 'user') {
+      api('/api/user/info', { unique_id: k.id }).then(function (d) {
+        if (!ok()) return;
+        prof(d);
+        st('Memuat video\u2026');
+        return api('/api/user/posts', { unique_id: '@' + k.id, count: 12, cursor: 0, hd: 1 }).then(function (r) {
+          if (!ok()) return;
+          grid(r.videos || []);
+          st(items.length ? '' : 'Belum ada video yang bisa ditampilkan.');
+        });
+      }).catch(fail);
+    } else {
+      api('/api/feed/search', { keywords: k.q, count: 12, cursor: 0, HD: 1 }).then(function (r) {
+        if (!ok()) return;
+        grid(r.videos || []);
+        st(items.length ? '' : 'Tidak ada hasil untuk kata kunci ini.');
+      }).catch(fail);
+    }
+  }
+
+  /* ---------- unduh & salin ---------- */
+  function save(url, name, btn) {
+    var label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Mengunduh\u2026';
+    fetch(url).then(function (r) {
+      if (!r.ok) throw new Error('x');
+      return r.blob();
+    }).then(function (b) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      btn.textContent = label;
+    }).catch(function () {
+      // server menolak unduhan langsung: tombol berubah jadi pembuka file di tab baru
+      btn.removeAttribute('data-dl');
+      btn.setAttribute('data-go', url);
+      btn.textContent = label.length < 3 ? '\u2197' : 'Buka file di tab baru';
+    }).then(function () { btn.disabled = false; });
+  }
+  function copy(text, btn) {
+    var label = btn.textContent;
+    var done = function () {
+      btn.textContent = 'Tersalin';
+      setTimeout(function () { btn.textContent = label; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () {});
+    } else {
+      var t = document.createElement('textarea');
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      try { document.execCommand('copy'); done(); } catch (e) {}
+      t.remove();
+    }
+  }
+
+  /* ---------- panel Nexus ---------- */
+  function openNx() {
+    closeNx();
+    injectCss();
+    var r = document.createElement('div');
+    r.id = 'sk-nx';
+    r.setAttribute('role', 'dialog');
+    r.setAttribute('aria-label', 'Nexus');
+    r.style.cssText = theme();
+    r.innerHTML =
+      '<div class="sk-nx-top"><b>Nexus</b><button type="button" class="sk-nx-x" data-x aria-label="Tutup">\u00D7</button></div>' +
+      '<div class="sk-nx-bar"><input type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Link TikTok, @username, atau kata kunci">' +
+      '<button type="button" class="sk-nx-b p" data-s>Cari</button></div>' +
+      '<div class="sk-nx-res"><p id="sk-nx-st" class="sk-nx-dim"></p><div id="sk-nx-prof"></div><div id="sk-nx-det"></div><div id="sk-nx-list"></div></div>';
+    var inp = r.querySelector('input');
+    r.addEventListener('click', function (e) {
+      var t = e.target.closest ? e.target.closest('[data-x],[data-s],[data-i],[data-dl],[data-go],[data-copy]') : null;
+      if (!t) return;
+      if (t.hasAttribute('data-x')) closeNx();
+      else if (t.hasAttribute('data-s')) run(inp.value);
+      else if (t.hasAttribute('data-i')) show(items[+t.getAttribute('data-i')]);
+      else if (t.hasAttribute('data-dl')) save(t.getAttribute('data-dl'), t.getAttribute('data-n') || 'nexus', t);
+      else if (t.hasAttribute('data-go')) window.open(t.getAttribute('data-go'), '_blank', 'noopener');
+      else if (t.hasAttribute('data-copy')) copy(t.getAttribute('data-copy'), t);
+    });
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') run(inp.value); });
+    r.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeNx(); });
+    document.body.appendChild(r);
+    keepOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    st('Tempel link video atau profil TikTok, ketik @username, atau tulis kata kunci.');
+    inp.focus();
+  }
+  function closeNx() {
+    var r = document.getElementById('sk-nx');
+    if (!r) return;
+    token++;
+    r.remove();
+    document.documentElement.style.overflow = keepOverflow;
+  }
+
+  /* ---------- menu "Nexus" di Pengaturan (dipantau terus, sama seperti menu AI Asisten) ---------- */
+  function findDeluxe() {
+    var all = document.body.getElementsByTagName('*');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (el.namespaceURI !== 'http://www.w3.org/1999/xhtml') continue;
+            if (/^(SCRIPT|STYLE|IFRAME|SELECT|OPTION|OPTGROUP)$/.test(el.tagName)) continue;
+      var t = el.textContent;
+      if (t.length < 40 && letters(t) === 'deluxe') return el;
+    }
+    return null;
+  }
+  function ensure() {
+    var cur = document.getElementById(ITEM);
+    var ai = document.querySelector('.sk-ai-btn:not(.sk-nx-btn)');
+    var row = ai ? ai.parentNode : findDeluxe();
+    if (!row) return;
+    if (cur && cur.previousElementSibling === row) return;
+    if (cur) cur.remove();
+    var w = document.createElement(row.tagName === 'LI' ? 'li' : 'div');
+    w.id = ITEM;
+    w.style.cssText = 'grid-column:1/-1;list-style:none';
+    w.innerHTML =
+      '<button type="button" class="sk-ai-btn sk-nx-btn">' +
+      '<span style="font-size:1.4em">\uD83D\uDD0E</span>' +
+      '<span>Nexus</span>' +
+      '<span class="sk-ai-go">\u203A</span></button>';
+    w.firstChild.onclick = openNx;
+    row.insertAdjacentElement('afterend', w);
+  }
+
+  function start() {
+    var timer;
+    new MutationObserver(function () {
+      clearTimeout(timer);
+      timer = setTimeout(ensure, 150);
+    }).observe(document.body, { childList: true, subtree: true });
+    ensure();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
