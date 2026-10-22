@@ -956,3 +956,187 @@ if (p && p.catch) p.catch(function () {});
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
 })();
+
+/* ===== SaveTok: Premium 1 bulan + token gratis + Tebak Musik (rank), ikon SVG =====
+   PASANG:
+   1) Matikan patch lama "token harian + Premium": baris 245, ubah `(()=>{` jadi `0&&(()=>{`
+   2) Kalau versi sebelumnya (yang masih pakai emoji) sudah ditempel, HAPUS dulu blok itu:
+      dari komentar "Premium 1 bulan + token gratis + Tebak Musik" sampai `})();` terakhir
+   3) Tempel kode ini di PALING BAWAH script.js
+   Catatan: token & Premium disimpan di browser (localStorage) dan "bagikan" tidak bisa dicek
+   tanpa server, jadi ini pembatas ringan berbasis kejujuran. */
+(()=>{
+ if(window.__skPm){console.warn('Blok Premium ganda: hapus yang lama');return}
+ window.__skPm=1;
+ const DAILY=5,PMDAYS=30,QN=5,SNIP=15; // token gratis/hari, lama Premium (hari), soal/hari, detik putar lagu
+ const FEED='https://www.tikwm.com/api/feed/list?region=ID&count=30'; // lagu yang lagi ramai di TikTok
+ const RANKS=[['Immortal',200],['Glory',100],['Honor',50],['Mythic',25],['Legenda',1]];
+ const RC={Immortal:'#06b6d4',Glory:'#f59e0b',Honor:'#3b82f6',Mythic:'#ef4444',Legenda:'#a855f7'};
+ const T=(a,b)=>L==='id'?a:b;
+ const day=()=>Math.floor((Date.now()-new Date().getTimezoneOffset()*6e4)/864e5);
+ const tok=()=>{let s=S.g('tk5',null);if(!s||s.d!==day()){s={n:DAILY,d:day()};S.s('tk5',s)}return s};
+ const left=()=>Math.max(0,(+S.g('pm1',0)||0)-Date.now());
+ const prem=()=>left()>0,days=()=>Math.ceil(left()/864e5);
+ const charge=c=>{const s=tok();s.n=Math.max(0,s.n-c);S.s('tk5',s)};
+ const stars=()=>+S.g('qst',0)||0;
+ const rank=n=>{const r=RANKS.find(x=>n>=x[1]);return r?r[0]:''};
+ const nextR=n=>{const r=[...RANKS].reverse().find(x=>x[1]>n);return r?{name:r[0],need:r[1]-n}:null};
+ const shuf=a=>[...a].sort(()=>Math.random()-.5);
+
+ /* --- ikon SVG (ikut warna tema lewat currentColor) --- */
+ const sv=(b,c,line)=>'<svg viewBox="0 0 24 24" width="1.15em" height="1.15em" aria-hidden="true" style="flex:none;vertical-align:-.2em;color:'+c+'"'
+  +(line?' fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"':' fill="currentColor"')+'>'+b+'</svg>';
+ const IC={
+  crown:sv('<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5L3 8zm2 12h14v2H5z"/>','#f59e0b'),
+  bolt:sv('<path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/>','#f59e0b'),
+  star:sv('<path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>','#f59e0b'),
+  play:sv('<path d="M8 5v14l11-7z"/>','currentColor'),
+  note:sv('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>','var(--ac)',1),
+  share:sv('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>','currentColor',1)
+ };
+ const badge=(r,z)=>'<svg viewBox="0 0 24 24" width="'+z+'" height="'+z+'" aria-hidden="true" style="flex:none">'
+  +'<path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z" fill="'+(RC[r]||'#9aa0b4')+'" fill-opacity="'+(r?1:.35)+'"/>'
+  +(r?'<path d="M12 7.1l1.15 3.32 3.51.07-2.81 2.11 1.03 3.36L12 13.95l-2.88 2.01 1.03-3.36-2.81-2.11 3.51-.07z" fill="#fff"/>':'')+'</svg>';
+ const mkB=(a,x)=>'<button type="button" class="btn sm" data-a="'+a+'" style="display:inline-flex;align-items:center;gap:5px">'+x+'</button>';
+
+ /* --- bar token / Premium di bawah form --- */
+ const bx=el('div');
+ bx.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:14px';
+ const bar=()=>{
+  const n=tok().n;
+  bx.innerHTML='<span class="mut">'+(prem()
+   ?IC.crown+' '+esc(T('Premium aktif · sisa '+days()+' hari','Premium active · '+days()+' days left'))
+   :IC.bolt+' '+esc(T('Token','Tokens'))+' <b>'+n+'/'+DAILY+'</b>'+(n?'':' · <b style="color:var(--ac)">Limited</b>'))+'</span>'
+   +'<span style="display:flex;gap:6px">'+mkB('pm',IC.crown+' Premium')+mkB('qz',IC.note+' '+esc(T('Tebak Musik','Music Quiz')))+'</span>';
+ };
+
+ /* --- dialog Premium --- */
+ const pd=el('dialog');let note='';
+ const drawP=()=>{
+  const on=prem(),old=+S.g('pm1',0)>0;
+  pd.innerHTML='<h3>'+IC.crown+' Premium</h3>'+(note?'<p style="margin:0 0 10px;color:var(--ac)"><b>'+esc(note)+'</b></p>':'')
+   +'<p class="mut" style="margin:0 0 12px">'+esc(T(
+    'Premium = download tanpa batas selama 1 bulan. Kalau waktunya habis, perpanjang 1 bulan lagi dengan membagikan SaveTok ke teman. Tanpa Premium kamu dapat '+DAILY+' token per hari, kalau token habis download dibatasi sampai besok.',
+    'Premium = unlimited downloads for 1 month. When it ends, renew for another month by sharing SaveTok with a friend. Without Premium you get '+DAILY+' tokens per day; when they run out, downloads are limited until tomorrow.'))+'</p>'
+   +'<b>'+esc(on?T('Premium aktif, sisa '+days()+' hari','Premium active, '+days()+' days left'):old?T('Premium sudah berakhir','Premium has ended'):T('Belum Premium','Not Premium'))+'</b>'
+   +'<div class="fr" style="margin-top:14px"><button type="button" class="btn pri" data-a="share"'+(on?' disabled':'')+' style="display:inline-flex;align-items:center;justify-content:center;gap:6px">'
+   +(on?'':IC.share)+esc(on?T('Premium sedang aktif','Premium is active'):T('Bagikan ke teman untuk '+(old?'perpanjang':'aktifkan'),'Share with a friend to '+(old?'renew':'activate')))+'</button></div>'
+   +'<div class="fr"><button type="button" class="btn" data-a="x">'+esc(T('Tutup','Close'))+'</button></div>';
+ };
+ const showP=m=>{note=m||'';drawP();if(!pd.open)pd.showModal()};
+ const share=async()=>{
+  if(prem())return;
+  const d={title:'SaveTok',text:T('Download video TikTok tanpa watermark, gratis!','Download TikTok videos without watermark, free!'),url:location.href.split('#')[0]};
+  let ok=false;
+  try{if(navigator.share){await navigator.share(d);ok=true}}
+  catch(e){if(e&&e.name==='AbortError')return toast(T('Bagikan dulu ya, baru Premium aktif','Share first to activate Premium'))}
+  if(!ok){window.open('https://wa.me/?text='+encodeURIComponent(d.text+' '+d.url),'_blank','noopener');await sleep(8000)}
+  S.s('pm1',Date.now()+PMDAYS*864e5);bar();
+  toast(T('Premium aktif 1 bulan','Premium active for 1 month'));
+ };
+ pd.onclick=async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.a==='x')pd.close();
+  else if(b.dataset.a==='share'){b.disabled=true;note='';await share();drawP()}
+ };
+
+ /* --- Tebak Musik TikTok --- */
+ const qd=el('dialog'),au=new Audio();let Q=null,qerr='',loadingQ=false,tm;
+ const stop=()=>{clearTimeout(tm);au.pause()};
+ au.onerror=()=>toast(T('Audio gagal dimuat','Audio failed to load'));
+ qd.addEventListener('close',stop);
+ const jget=async u=>{
+  for(let k=0;k<2;k++){
+   for(const p of PX){try{const j=await(await fetch(p?p+encodeURIComponent(u):u)).json();if(j&&j.data)return j}catch(e){}}
+   await sleep(1200);
+  }
+  throw new Error('net');
+ };
+ const build=async()=>{
+  const d=(await jget(FEED)).data,arr=Array.isArray(d)?d:(d.videos||d.list||[]),seen={},tr=[];
+  arr.forEach(x=>{
+   const m=x.music_info||{},u=m.play||x.music,n=String(m.title||'').trim(),k=n.toLowerCase();
+   if(!u||!n||n.length>60||seen[k]||/original sound|suara asli|original audio|sonido original|оригинальный звук/i.test(n))return;
+   seen[k]=1;tr.push({u,n,a:String(m.author||'').trim()});
+  });
+  if(tr.length<4)throw new Error('few');
+  return shuf(tr).slice(0,QN).map(c=>{
+   const o=shuf(shuf(tr.filter(x=>x!==c)).slice(0,3).concat(c));
+   return{u:c.u,o:o.map(x=>x.n+(x.a?' — '+x.a:'')),c:o.indexOf(c)};
+  });
+ };
+ const drawQ=()=>{
+  const n=stars(),nx=nextR(n),lab='ABCD',fl='display:flex;align-items:center;gap:';
+  let h='<h3>'+IC.note+' '+esc(T('Tebak Musik TikTok','TikTok Music Quiz'))+'</h3>'
+   +'<div class="hh"><span style="'+fl+'8px">'+badge(rank(n),34)+'<b data-rk>'+esc(rank(n)||T('Belum ada rank','Unranked'))+'</b></span>'
+   +'<b style="'+fl+'4px">'+n+IC.star+'</b></div>'
+   +'<p class="mut" style="margin:6px 0 12px;font-size:13px">'+esc(nx?T(nx.need+' bintang lagi ke '+nx.name,nx.need+' more stars to '+nx.name):T('Rank tertinggi!','Top rank!'))+'</p>';
+  if(!Q){
+   h+=qerr?'<p>'+esc(qerr)+'</p><div class="fr"><button type="button" class="btn pri" data-a="retry">'+esc(T('Coba lagi','Try again'))+'</button></div>'
+          :'<p class="mut">'+esc(T('Memuat soal hari ini…','Loading today’s questions…'))+'</p>';
+  }else if(Q.i>=Q.qs.length){
+   h+='<p><b>'+esc(T('Selesai! Benar '+Q.ok+'/'+Q.qs.length+' hari ini','Done! '+Q.ok+'/'+Q.qs.length+' correct today'))+'</b></p>'
+    +'<p class="mut">'+esc(T('Soal baru muncul besok.','New questions tomorrow.'))+'</p>';
+  }else{
+   const q=Q.qs[Q.i],a=Q.a[Q.i];
+   h+='<p class="mut" style="margin:0 0 8px">'+esc(T('Soal '+(Q.i+1)+' dari '+Q.qs.length+' · Apa judul lagu ini?','Question '+(Q.i+1)+' of '+Q.qs.length+' · Which song is this?'))+'</p>'
+    +'<button type="button" class="btn pri" data-a="play" style="width:100%;'+fl+'6px;justify-content:center">'+IC.play+esc(T('Putar lagu','Play song'))+'</button>'
+    +q.o.map((x,i)=>'<button type="button" class="btn" data-a="o" data-i="'+i+'"'+(a!=null?' disabled':'')
+     +' style="width:100%;text-align:left;margin-top:8px;'+(a!=null&&i===q.c?'border-color:#16a34a;':'')+(a===i&&i!==q.c?'border-color:var(--ac);':'')+'">'+lab[i]+'. '+esc(x)+'</button>').join('');
+   if(a!=null)h+='<p style="margin:12px 0 0;'+fl+'6px"><b>'+esc(a===q.c?T('Benar! +1','Correct! +1'):T('Salah. Jawaban: '+lab[q.c],'Wrong. Answer: '+lab[q.c]))+'</b>'+(a===q.c?IC.star:'')+'</p>'
+    +'<div class="fr"><button type="button" class="btn pri" data-a="next">'+esc(Q.i+1>=Q.qs.length?T('Selesai','Finish'):T('Lanjut','Next'))+'</button></div>';
+  }
+  h+='<details style="margin-top:14px"><summary>'+esc(T('Tingkat rank','Ranks'))+'</summary>'
+   +RANKS.map((x,i)=>'<div class="hh" style="padding:4px 0"><span style="'+fl+'8px">'+badge(x[0],22)+x[0]+'</span>'
+    +'<span class="mut" style="'+fl+'4px">'+(i?x[1]+'–'+(RANKS[i-1][1]-1):x[1]+'+')+IC.star+'</span></div>').join('')+'</details>'
+   +'<div class="fr"><button type="button" class="btn" data-a="x">'+esc(T('Tutup','Close'))+'</button></div>';
+  qd.innerHTML=h;
+ };
+ const openQ=async()=>{
+  if(!qd.open)qd.showModal();
+  Q=S.g('qz1',null);if(!Q||Q.d!==day())Q=null;
+  qerr='';drawQ();
+  if(Q||loadingQ)return;
+  loadingQ=true;
+  try{const qs=await build();Q={d:day(),qs,i:0,ok:0,a:qs.map(()=>null)};S.s('qz1',Q)}
+  catch(e){qerr=T('Soal belum bisa dimuat. Cek koneksi lalu coba lagi.','Could not load the questions. Check your connection and try again.')}
+  loadingQ=false;drawQ();
+ };
+ const play=()=>{
+  const q=Q&&Q.qs[Q.i];if(!q)return;
+  stop();if(au.getAttribute('src')!==q.u)au.src=q.u;
+  au.currentTime=0;
+  au.play().then(()=>{tm=setTimeout(stop,SNIP*1000)}).catch(()=>toast(T('Audio gagal diputar','Audio failed to play')));
+ };
+ qd.onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const a=b.dataset.a,q=Q&&Q.qs[Q.i];
+  if(a==='x')qd.close();
+  else if(a==='retry')openQ();
+  else if(a==='play')play();
+  else if(a==='next'){stop();Q.i++;S.s('qz1',Q);drawQ()}
+  else if(a==='o'&&q&&Q.a[Q.i]==null){
+   const i=+b.dataset.i;Q.a[Q.i]=i;
+   if(i===q.c){Q.ok++;S.s('qst',stars()+1)}
+   S.s('qz1',Q);drawQ();
+  }
+ };
+
+ /* --- batas token di tombol download (1 token per link, 3 token untuk banyak link) --- */
+ const _go=go,_al=applyLang;
+ go=async()=>{
+  if(busy)return _go();
+  const c=mode==='single'?1:3;
+  if(!prem()&&tok().n<c)return showP(T('Token tidak cukup (sisa '+tok().n+'). Token terisi lagi besok, atau aktifkan Premium.','Not enough tokens ('+tok().n+' left). Tokens refill tomorrow, or activate Premium.'));
+  await _go();
+  if(!prem()&&$('#msg').className!=='err'&&$$('#res article.card').length)charge(c);
+  bar();
+ };
+ applyLang=()=>{_al();bar()};
+ bx.onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.a==='pm')showP();else if(b.dataset.a==='qz')openQ();
+ };
+ $('#msg').after(bx);document.body.append(pd,qd);bar();
+})();
+  
