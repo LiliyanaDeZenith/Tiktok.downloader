@@ -202,6 +202,30 @@ ACT.wa=async(d,b)=>{
 const _card=card; // tambah tombol WhatsApp di baris tombol hasil, kode lama tidak diubah
 card=(d,c)=>{const E=_card(d,c);E.querySelector('.acts').insertAdjacentHTML('beforeend','<button type="button" class="btn" data-k="wa">'+esc(t('wa'))+'</button>');return E};
 
+/* ===== SaveTok: menu setting "Deluxe" (ringkas: hubungi developer saja, tanpa rating dan tanpa kirim email) =====
+   Kalau versi lama (yang ada rating-nya) SUDAH ditempel: hapus seluruh blok lama itu (dari komentar "===== SaveTok: menu setting Deluxe" sampai penutup "})();"), lalu tempel yang ini di posisi yang sama.
+   Kalau BELUM pernah ditempel: tempel di PALING BAWAH script.js (baris 178 kalau patch WhatsApp belum dipasang, atau baris 204 kalau sudah).
+   Ganti email di variabel MAIL kalau perlu. */
+(()=>{
+ const MAIL='@liliyana.chan';
+ Object.assign(D.id,{dx_c:'developer account ',dx_copy:'Salin Tiktok Dev Account',dx_cp:'TikTok Dev disalin ✓',dx_x:'Tutup'});
+ Object.assign(D.en,{dx_c:'Developer account',dx_copy:'Salin Tiktok Dev Account',dx_cp:'TikTok Dev copied ✓',dx_x:'Close'});
+ const dlg=el('dialog'),btn=el('button','btn sm','⚙');
+ dlg.id='dxd';btn.type='button';btn.id='dxb';btn.title='Deluxe';btn.setAttribute('aria-label','Deluxe');
+ const say=m=>{dlg.querySelector('#dxm').textContent=m};
+ const B=(a,k,x)=>`<button type="button" class="btn${x||''}" data-a="${a}">${esc(t(k))}</button>`;
+ const html=()=>`<h3>⚙ Deluxe</h3><b>${esc(t('dx_c'))}</b><br><small>${MAIL}</small>`
+  +`<div class="fr">${B('copy','dx_copy',' pri')}${B('x','dx_x')}</div><p class="mut" id="dxm" role="status"></p>`;
+ btn.onclick=()=>{dlg.innerHTML=html();if(!dlg.open)dlg.showModal()};
+ dlg.onclick=async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const a=b.dataset.a;
+  if(a==='x')dlg.close();
+  else if(a==='copy'){try{await navigator.clipboard.writeText(MAIL);say(t('dx_cp'))}catch(x){say(MAIL)}}
+ };
+ document.body.append(dlg);$('#theme').after(btn);
+})();
+
 /* ===== SaveTok: token harian + Premium =====
    TEMPEL DI PALING BAWAH script.js (setelah patch sponsor ikon). Angka aturan ada di baris const paling atas.
    Jujur soal batasan: token & status premium disimpan di browser (localStorage), jadi ini pembatas ringan, bukan keamanan.
