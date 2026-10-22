@@ -956,3 +956,284 @@ if (p && p.catch) p.catch(function () {});
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
 })();
+/* ===== SaveTok: Luxe, pencari preset Alight Motion (menggantikan "AI Asisten / Nexus" di menu Deluxe) =====
+   PASANG: tempel di PALING BAWAH script.js. Kode AI lama tidak perlu dihapus, tombolnya otomatis disembunyikan.
+   Sumber data (API gratis, tanpa key): tikwm.com untuk video, caption, komentar, profil, cari video;
+   iTunes Search untuk cari lagu. tikwm membatasi 1 request/detik, jadi pemindaian dibuat bertahap. */
+(()=>{
+ if(window.__skLx){console.warn('Luxe ganda: hapus yang lama');return}
+ window.__skLx=1;
+ const PAGES=3,CPP=50; // halaman komentar yang dipindai, komentar per halaman
+ const T=(a,b)=>L==='id'?a:b;
+ const nf=n=>{n=+n||0;return n>=1e6?(n/1e6).toFixed(1).replace(/\.0$/,'')+'M':n>=1e3?(n/1e3).toFixed(1).replace(/\.0$/,'')+'K':''+n};
+ const abs=u=>!u?'':/^https?:/i.test(u)?u:u.startsWith('//')?'https:'+u:'https://www.tikwm.com'+(u[0]==='/'?'':'/')+u;
+ const key=u=>{try{const p=new URL(u);return p.hostname.replace(/^www\./,'').toLowerCase()+p.pathname.replace(/\/$/,'')}catch(e){return u}};
+ const letters=s=>(s||'').toLowerCase().replace(/[^a-z]/g,'');
+ const ERR=()=>T('Gagal mengambil data. API gratis ada batasnya, tunggu sebentar lalu coba lagi.','Could not fetch data. The free API is rate-limited, wait a moment and try again.');
+
+ /* --- ikon SVG --- */
+ const sv=b=>'<svg viewBox="0 0 24 24" width="1.15em" height="1.15em" aria-hidden="true" style="flex:none;vertical-align:-.2em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+b+'</svg>';
+ const IC={
+  search:sv('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+  layers:sv('<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>'),
+  code:sv('<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'),
+  music:sv('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'),
+  video:sv('<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>'),
+  link:sv('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
+  go:sv('<polyline points="9 18 15 12 9 6"/>')
+ };
+
+ /* --- semua jenis link TikTok: video, foto, link pendek, profil, lagu, tag, @username, ID video --- */
+ const tkParse=s=>{
+  s=String(s||'').trim();
+  const m=s.match(/(?:https?:\/\/)?(?:[\w-]+\.)*tiktokv?\.(?:com|us)\/[^\s"'<>]*/i);
+  if(!m){
+   if(/^@[\w.]{2,24}$/.test(s))return{t:'user',v:s.slice(1)};
+   if(/^\d{15,22}$/.test(s))return{t:'video',u:'https://www.tiktok.com/@tiktok/video/'+s};
+   return null;
+  }
+  let u=m[0].replace(/[.,;:!?)\]]+$/,'');if(!/^https?:/i.test(u))u='https://'+u;
+  let p;try{p=new URL(u)}catch(e){return null}
+  const path=decodeURIComponent(p.pathname),us=path.match(/^\/@([^/]+)\/?$/);
+  if(us)return{t:'user',v:us[1]};
+  const mu=path.match(/^\/music\/(.+?)(?:-\d{8,})?\/?$/);if(mu)return{t:'search',v:mu[1].replace(/-/g,' ')};
+  const tg=path.match(/^\/(?:tag|discover)\/([^/]+)/);if(tg)return{t:'search',v:(/\/tag\//.test(path)?'#':'')+tg[1].replace(/-/g,' ')};
+  const id=path.match(/\/(?:video|photo|v)\/(\d{15,22})/),un=path.match(/^\/@([^/]+)\//);
+  return{t:'video',u:id?'https://www.tiktok.com/@'+(un?un[1]:'tiktok')+'/video/'+id[1]:u};
+ };
+
+ /* --- cari link preset di teks (caption, komentar, bio) --- */
+ const AMH=/(?:^|\.)(?:alight\.link|alightcreative\.com|alightmotion\.com)$/i;
+ const FH=/(?:^|\.)(?:mediafire\.com|drive\.google\.com|docs\.google\.com|mega\.nz|pastebin\.com|t\.me|dropbox\.com|gofile\.io|sfile\.mobi|github\.com|raw\.githubusercontent\.com)$/i;
+ const URLRX=/(?:https?:\/\/|www\.)[^\s"'<>]+|\b(?:alight\.link|alightcreative\.com|alightmotion\.com)\/[^\s"'<>]+/gi;
+ const scan=(txt,src)=>{
+  txt=String(txt||'');const out=[];
+  for(const m of txt.matchAll(URLRX)){
+   let u=m[0].replace(/[)\].,;:!?]+$/,'');if(!/^https?:/i.test(u))u='https://'+u;
+   let p;try{p=new URL(u)}catch(e){continue}
+   const ctx=txt.slice(Math.max(0,m.index-40),m.index).toLowerCase();let ty='';
+   if(AMH.test(p.hostname)){if(p.pathname.length>1)ty='am'}
+   else if(/\.(xml|alight)$/i.test(p.pathname)||/xml/i.test(u)||(FH.test(p.hostname)&&/xml|preset|alight|\bam\b/.test(ctx)))ty='xml';
+   if(ty)out.push({u,ty,src});
+  }
+  return out;
+ };
+
+ /* --- API gratis tikwm (antrean 1 request/detik, cadangan proxy CORS bawaan situs) --- */
+ let lt=0,chain=Promise.resolve();
+ const twRaw=async(path,params,post)=>{
+  const base='https://www.tikwm.com/api/'+path,qs=new URLSearchParams(params).toString();
+  for(let k=0;k<3;k++){
+   const w=1150-(Date.now()-lt);if(w>0)await sleep(w);lt=Date.now();
+   let lim=false;
+   for(const p of PX){
+    try{
+     const u=base+'?'+qs;
+     let j=await(await fetch(p?p+encodeURIComponent(u):u)).json();
+     if(j&&j.code!==0&&!/limit/i.test(j.msg||'')&&post&&!p)
+      j=await(await fetch(base,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:qs})).json();
+     if(j&&j.code===0)return j.data||{};
+     if(j&&/limit/i.test(j.msg||''))lim=true;
+     break;
+    }catch(e){}
+   }
+   if(!lim)break;
+  }
+  throw new Error('api');
+ };
+ const tw=(a,b,c)=>{const r=chain.then(()=>twRaw(a,b,c));chain=r.catch(()=>{});return r};
+ // JSONP untuk iTunes (API gratis cari lagu)
+ const jp=u=>new Promise((res,rej)=>{
+  const n='__lx'+Math.random().toString(36).slice(2),s=document.createElement('script');
+  const done=v=>{delete window[n];s.remove();v?res(v):rej(new Error('jp'))};
+  window[n]=d=>done(d);s.onerror=()=>done(null);
+  s.src=u+(u.includes('?')?'&':'?')+'callback='+n;document.head.append(s);setTimeout(()=>done(null),10000);
+ });
+ const getUser=async id=>{
+  const d=await tw('user/info',{unique_id:id}),u=d.user||d,s=d.stats||{};
+  return{id:u.uniqueId||u.unique_id||id,name:u.nickname,av:abs(u.avatarLarger||u.avatarMedium||u.avatarThumb||u.avatar),bio:u.signature||'',
+   fol:s.followerCount??s.follower_count,like:s.heartCount??s.heart??s.total_favorited,vid:s.videoCount??s.aweme_count};
+ };
+ const norm=id0=>v=>{
+  const a=v.author||{},uid=a.unique_id||id0||'tiktok',vid=v.video_id||v.id;
+  return{url:'https://www.tiktok.com/@'+uid+'/video/'+vid,title:v.title||'',cover:abs(v.cover||v.origin_cover),uid,pre:scan(v.title,{k:'caption'})};
+ };
+
+ /* --- tampilan --- */
+ const css=document.createElement('style');
+ css.textContent=
+  '.lx-open{display:flex;align-items:center;gap:12px;width:100%;margin:8px 0;padding:12px 14px;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:inherit;font:inherit;text-align:left;cursor:pointer}'
+  +'.lx-ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--ac);color:#fff;flex:none}'
+  +'dialog.lx{width:min(94vw,520px);max-height:88vh;overflow:auto}'
+  +'.lx-sub{font-size:12px;color:var(--mut)}'
+  +'.lx-tabs{display:flex;gap:6px;margin:10px 0}'
+  +'.lx-tabs button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--bd);background:transparent;color:var(--mut);padding:8px;border-radius:10px;font:inherit;font-size:14px;cursor:pointer}'
+  +'.lx-tabs .on{background:var(--ac);border-color:var(--ac);color:#fff}'
+  +'.lx-form{display:flex;gap:8px}.lx-form input{flex:1;min-width:0}'
+  +'.lx-card{display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px;border:1px solid var(--bd);border-radius:14px;background:var(--card);color:inherit;text-decoration:none}'
+  +'.lx-card:active{background:var(--bg)}.lx-cta{display:block;font-size:12px;color:var(--ac)}'
+  +'.lx-prof{display:flex;gap:12px;align-items:center;margin:12px 0;padding:12px;border:1px solid var(--bd);border-radius:14px}'
+  +'.lx-av{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none;background:var(--bd)}'
+  +'.lx-mini{width:16px;height:16px;border-radius:50%;object-fit:cover;vertical-align:-3px;margin-right:4px;background:var(--bd)}'
+  +'.lx-vid{display:flex;gap:10px;margin-top:10px}.lx-vid img{width:56px;height:74px;object-fit:cover;border-radius:8px;flex:none;background:var(--bd)}'
+  +'.lx-spin{display:inline-block;width:12px;height:12px;margin-right:6px;border:2px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:lxs .8s linear infinite;vertical-align:-2px}'
+  +'@keyframes lxs{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.lx-spin{animation:none}}'
+  +'#sk-ai-item{display:none!important}'; // sembunyikan tombol AI/Nexus lama
+ document.head.append(css);
+
+ const qd=el('dialog','lx');
+ qd.innerHTML='<div id="lx-head"></div><form class="lx-form"><input id="lx-in" type="text" autocomplete="off" enterkeyhint="search">'
+  +'<button class="btn pri" type="submit" style="display:inline-flex;align-items:center;gap:6px"></button></form><div id="lx-out"></div>'
+  +'<div class="fr"><button type="button" class="btn" data-a="x"></button></div>';
+ const head=qd.querySelector('#lx-head'),inp=qd.querySelector('#lx-in'),out=qd.querySelector('#lx-out'),sb=qd.querySelector('.lx-form button'),cb=qd.querySelector('.fr button');
+ let st={tab:'link',status:'',err:'',busy:false,prof:null,vid:null,presets:[],list:null,songs:null,run:0};
+
+ const srcLabel=s=>s.k==='caption'?T('Dari caption','From caption'):s.k==='bio'?T('Dari bio','From bio')
+  :(s.av?'<img class="lx-mini" loading="lazy" referrerpolicy="no-referrer" alt="" src="'+esc(s.av)+'">':'')+esc(T('Dari komentar','From comment')+(s.name?' @'+s.name:'')+(s.likes?' · '+nf(s.likes)+' '+T('suka','likes'):''));
+ const card=x=>{
+  let host='',code='';try{const p=new URL(x.u);host=p.hostname.replace(/^www\./,'');code=(p.pathname+p.search).slice(0,32)}catch(e){}
+  return '<a class="lx-card" href="'+esc(x.u)+'" target="_blank" rel="noopener noreferrer"><span class="lx-ico">'+(x.ty==='am'?IC.layers:IC.code)+'</span>'
+   +'<span style="min-width:0;flex:1"><b>'+esc(x.ty==='am'?T('Preset Alight Motion','Alight Motion preset'):T('Preset XML','XML preset'))+'</b>'
+   +'<span class="lx-sub" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(host+code)+'</span>'
+   +'<span class="lx-sub" style="display:block">'+(x.src.k==='comment'&&x.src.av?'':'')+srcLabel(x.src)+'</span>'
+   +'<span class="lx-cta">'+esc(x.ty==='am'?T('Ketuk untuk memakai preset','Tap to use this preset'):T('Ketuk untuk unduh, lalu buka dengan Alight Motion','Tap to download, then open with Alight Motion'))+'</span></span>'+IC.go+'</a>';
+ };
+ const profile=p=>{
+  const stats=[p.fol!=null?nf(p.fol)+' '+T('pengikut','followers'):'',p.like!=null?nf(p.like)+' '+T('suka','likes'):'',p.vid!=null?nf(p.vid)+' '+T('video','videos'):''].filter(Boolean).join(' · ');
+  return '<div class="lx-prof"><img class="lx-av" alt="" referrerpolicy="no-referrer" src="'+esc(p.av||'')+'"><div style="min-width:0"><b>'+esc(p.name||p.id)+'</b>'
+   +'<div class="lx-sub"><a href="https://www.tiktok.com/@'+esc(encodeURIComponent(p.id))+'" target="_blank" rel="noopener noreferrer" style="color:inherit">@'+esc(p.id)+'</a></div>'
+   +(stats?'<div class="lx-sub" style="margin-top:4px">'+esc(stats)+'</div>':'')
+   +(p.bio?'<div class="lx-sub" style="margin-top:4px;white-space:pre-wrap;word-break:break-word">'+esc(String(p.bio).slice(0,140))+'</div>':'')+'</div></div>';
+ };
+ const vidItem=x=>'<div class="lx-vid"><img loading="lazy" referrerpolicy="no-referrer" alt="" src="'+esc(x.cover)+'"><div style="min-width:0;flex:1">'
+  +'<div style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:14px">'+esc(x.title||'—')+'</div>'
+  +'<div class="lx-sub" style="margin:4px 0 6px">@'+esc(x.uid)+'</div>'
+  +'<button type="button" class="btn sm" data-a="vid" data-u="'+esc(x.url)+'">'+esc(T('Pindai komentar & profil','Scan comments & profile'))+'</button></div></div>'+x.pre.map(card).join('');
+ const songItem=x=>'<button type="button" class="btn" data-a="song" data-q="'+esc(x.n)+'" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;margin-top:8px">'
+  +'<img alt="" loading="lazy" src="'+esc(x.art||'')+'" style="width:40px;height:40px;border-radius:8px;flex:none;background:var(--bd)"><span style="min-width:0"><b>'+esc(x.n)+'</b><span class="lx-sub" style="display:block">'+esc(x.a)+'</span></span></button>';
+
+ const draw=()=>{
+  head.innerHTML='<h3 style="display:flex;align-items:center;gap:8px;margin:0">'+IC.layers+' Luxe</h3><p class="lx-sub" style="margin:4px 0 0">'
+   +esc(T('Cari preset Alight Motion dari caption dan komentar TikTok','Find Alight Motion presets from TikTok captions and comments'))+'</p><div class="lx-tabs">'
+   +[['link','Link',IC.link],['video','Video',IC.video],['song',T('Lagu','Songs'),IC.music]].map(x=>'<button type="button" data-a="tab" data-t="'+x[0]+'"'+(st.tab===x[0]?' class="on"':'')+'>'+x[2]+' '+esc(x[1])+'</button>').join('')+'</div>';
+  inp.placeholder=st.tab==='link'?T('Tempel link TikTok atau @username','Paste a TikTok link or @username'):st.tab==='video'?T('Kata kunci, mis. glitch 4k','Keywords, e.g. glitch 4k'):T('Judul lagu','Song title');
+  sb.innerHTML=IC.search+' '+esc(T('Cari','Search'));cb.textContent=T('Tutup','Close');
+  let h='';
+  if(st.status)h+='<p class="lx-sub" role="status" style="margin:10px 0 0">'+(st.busy?'<span class="lx-spin"></span>':'')+esc(st.status)+'</p>';
+  if(st.err)h+='<p style="color:var(--ac);margin:8px 0 0">'+esc(st.err)+'</p>';
+  if(st.prof)h+=profile(st.prof);
+  if(st.vid)h+='<div class="lx-vid" style="align-items:center">'+(st.vid.cover?'<img alt="" referrerpolicy="no-referrer" src="'+esc(st.vid.cover)+'">':'')+'<div class="lx-sub" style="font-size:13px;min-width:0">'+esc(st.vid.title||'—')+'</div></div>';
+  if(st.vid||st.presets.length){
+   h+='<p style="margin:14px 0 0"><b>'+st.presets.length+' '+esc(T('preset ditemukan','presets found'))+'</b></p>';
+   h+=st.presets.length?'<p class="lx-sub" style="margin:2px 0 0">'+esc(T('Ketuk kartu untuk membuka dan memakai preset','Tap a card to open and use the preset'))+'</p>'+st.presets.map(card).join('')
+    :st.busy?'':'<p class="lx-sub">'+esc(T('Belum ada link preset di caption, komentar, atau bio yang dipindai.','No preset links found in the scanned caption, comments, or bio.'))+'</p>';
+  }
+  if(st.list)h+=st.list.map(vidItem).join('');
+  if(st.songs)h+=st.songs.map(songItem).join('');
+  out.innerHTML=h;
+  out.querySelectorAll('img').forEach(i=>{i.onerror=()=>{i.style.visibility='hidden'}});
+ };
+ const reset=o=>{st={...st,status:'',err:'',busy:true,prof:null,vid:null,presets:[],list:null,songs:null,run:st.run+1,...o};qd.scrollTop=0;return st.run};
+ const fin=(my,msg)=>{if(my===st.run){st.busy=false;st.status=msg||'';draw()}};
+ const fail=(my,m)=>{if(my===st.run){st.busy=false;st.status='';st.err=m;draw()}};
+ const kwOf=s=>s+(/alight|preset|xml/i.test(s)?'':' alight motion preset');
+
+ /* --- alur: analisis satu video (caption + komentar + profil) --- */
+ const runVideo=async u=>{
+  const my=reset({status:T('Mengambil data video…','Fetching video…')});draw();
+  const seen=new Set(),add=a=>a.forEach(x=>{const k=key(x.u);if(!seen.has(k)){seen.add(k);st.presets.push(x)}});
+  try{
+   const d=await tw('',{url:u,hd:1});if(my!==st.run)return;
+   const a=d.author||{},id=a.unique_id||a.uniqueId||'';
+   st.vid={title:d.title||'',cover:abs(d.cover)};
+   st.prof={id,name:a.nickname,av:abs(a.avatar)};
+   add(scan(d.title,{k:'caption'}));draw();
+   if(id)getUser(id).then(p=>{if(my!==st.run)return;st.prof={...st.prof,...p,name:p.name||st.prof.name,av:p.av||st.prof.av};add(scan(p.bio,{k:'bio'}));draw()}).catch(()=>{});
+   let cur=0,n=0;
+   try{
+    for(let pg=0;pg<PAGES;pg++){
+     st.status=T('Memindai komentar… ','Scanning comments… ')+n;draw();
+     const c=await tw('comment/list/',{url:u,count:CPP,cursor:cur});if(my!==st.run)return;
+     const cs=c.comments||[];n+=cs.length;
+     cs.forEach(x=>{const us=x.user||{};add(scan(x.text,{k:'comment',name:us.unique_id||us.uniqueId,av:abs(us.avatar),likes:x.digg_count}))});
+     draw();
+     if(!c.hasMore||!cs.length)break;
+     cur=c.cursor!=null?c.cursor:cur+CPP;
+    }
+   }catch(e){if(my===st.run)st.err=T('Komentar tidak bisa dimuat (dimatikan atau kena batas API). Hasil caption tetap ditampilkan.','Comments could not be loaded (disabled or API limit). Caption results are still shown.')}
+   fin(my,T('Selesai · '+n+' komentar dipindai','Done · '+n+' comments scanned'));
+  }catch(e){fail(my,ERR())}
+ };
+ /* --- alur: profil pengguna + video terbarunya --- */
+ const runUser=async id=>{
+  const my=reset({status:T('Mengambil profil…','Fetching profile…')});draw();
+  try{
+   const p=await getUser(id).catch(()=>null);if(my!==st.run)return;
+   const d=await tw('user/posts',{unique_id:id,count:12,cursor:0}).catch(()=>null);if(my!==st.run)return;
+   if(!p&&!d)throw new Error('api');
+   st.prof=p||{id};st.presets=scan(st.prof.bio,{k:'bio'});
+   st.list=((d&&d.videos)||[]).map(norm(id));
+   fin(my,st.list.length?T(st.list.length+' video terbaru','Latest '+st.list.length+' videos'):'');
+  }catch(e){fail(my,ERR())}
+ };
+ /* --- alur: cari video (kata kunci, tag, atau lagu) --- */
+ const runSearch=async kw=>{
+  const my=reset({tab:'video',status:T('Mencari video…','Searching videos…')});draw();
+  try{
+   const d=await tw('feed/search',{keywords:kw,count:12,cursor:0,hd:1},true);if(my!==st.run)return;
+   st.list=(d.videos||[]).map(norm(''));
+   const np=st.list.reduce((s,x)=>s+x.pre.length,0);
+   fin(my,st.list.length?T(st.list.length+' video · '+np+' preset di caption','Found '+st.list.length+' videos · '+np+' presets in captions'):T('Tidak ada video ditemukan','No videos found'));
+  }catch(e){fail(my,ERR())}
+ };
+ /* --- alur: cari lagu (iTunes), ketuk lagu untuk cari video preset-nya --- */
+ const runSongs=async q=>{
+  const my=reset({tab:'song',status:T('Mencari lagu…','Searching songs…')});draw();
+  try{
+   const d=await jp('https://itunes.apple.com/search?media=music&entity=song&limit=10&term='+encodeURIComponent(q));if(my!==st.run)return;
+   st.songs=(d.results||[]).map(r=>({n:r.trackName,a:r.artistName,art:r.artworkUrl60}));
+   fin(my,st.songs.length?T('Ketuk lagu untuk mencari video preset-nya','Tap a song to find its preset videos'):T('Lagu tidak ditemukan','No songs found'));
+  }catch(e){fail(my,ERR())}
+ };
+ const submit=()=>{
+  const v=inp.value.trim();if(!v)return;
+  const p=tkParse(v);
+  if(p)return p.t==='video'?runVideo(p.u):p.t==='user'?runUser(p.v):runSearch(kwOf(p.v));
+  if(st.tab==='song')return runSongs(v);
+  if(st.tab==='video')return runSearch(kwOf(v));
+  st.err=T('Tempel link TikTok atau tulis @username.','Paste a TikTok link or type a @username.');st.status='';draw();
+ };
+ qd.querySelector('.lx-form').onsubmit=e=>{e.preventDefault();submit()};
+ qd.onclick=e=>{
+  const b=e.target.closest('button');if(!b)return;const a=b.dataset.a;
+  if(a==='x')qd.close();
+  else if(a==='tab'){st.tab=b.dataset.t;st.err='';draw()}
+  else if(a==='vid')runVideo(b.dataset.u);
+  else if(a==='song')runSearch(kwOf(b.dataset.q));
+ };
+ const _al=applyLang;applyLang=()=>{_al();if(qd.open)draw()};
+
+ /* --- tombol Luxe di menu Deluxe (menggantikan tombol AI) --- */
+ const ensure=()=>{
+  if(qd.open)return;
+  const item=document.getElementById('lx-item');
+  if(item&&item.parentNode&&[...item.parentNode.children].some(c=>c!==item&&letters(c.textContent)==='deluxe'))return;
+  let row=null;
+  for(const e of document.body.getElementsByTagName('*')){
+   if(e.namespaceURI!=='http://www.w3.org/1999/xhtml'||/^(SCRIPT|STYLE|IFRAME|SELECT|OPTION|OPTGROUP)$/.test(e.tagName))continue;
+   const t=e.textContent;if(t.length<40&&letters(t)==='deluxe'){row=e;break}
+  }
+  if(!row)return;
+  if(item)item.remove();
+  const w=document.createElement(row.tagName==='LI'?'li':'div');
+  w.id='lx-item';w.style.cssText='grid-column:1/-1;list-style:none';
+  w.innerHTML='<button type="button" class="lx-open"><span class="lx-ico">'+IC.layers+'</span><span style="min-width:0;flex:1"><b>Luxe</b>'
+   +'<span class="lx-sub" style="display:block">'+esc(T('Cari preset Alight Motion dari caption & komentar','Find Alight Motion presets from captions & comments'))+'</span></span>'+IC.go+'</button>';
+  w.firstChild.onclick=()=>{draw();if(!qd.open)qd.showModal()};
+  row.insertAdjacentElement('afterend',w);
+ };
+ document.body.append(qd);draw();
+ let tm;new MutationObserver(()=>{clearTimeout(tm);tm=setTimeout(ensure,150)}).observe(document.body,{childList:true,subtree:true});
+ ensure();
+})();
+  
