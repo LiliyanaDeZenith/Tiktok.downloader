@@ -1,0 +1,52 @@
+LUX API - CARA PASANG
+
+1. Unggah lux-api.js ke repo (satu folder dengan file Luxe), lalu muat SEBELUM script Luxe
+   dengan tag script biasa (src="lux-api.js").
+
+2. Di file Luxe (screenshot baris 727-799) tambahkan SATU baris yang sama di tiga tempat:
+     if(window.LuxAPI)LuxAPI.enrich(st.list,{alive:()=>my===st.run,onItem:()=>draw()});
+   - runUser   : tepat SETELAH baris fin(my,...) (baris 736)
+   - runSearch : tepat SETELAH baris fin(my,...) (baris 746)
+   - runVideo (video tunggal, tidak terlihat di screenshot): setelah st.list terisi
+
+3. (Opsional) Di bawah baris yang mendefinisikan  const tw=...  tambahkan:
+     if(window.LuxAPI)LuxAPI.bind(tw);
+   Dengan ini LuxAPI memakai fungsi tw milikmu. Tanpa ini LuxAPI memanggil tikwm sendiri
+   (dengan proxy cadangan bila diblokir CORS).
+
+APA YANG TERJADI
+Setelah daftar video tampil, LuxAPI membaca komentar video satu per satu (batas tikwm: 1 request/detik,
+jadi 12 video sekitar 15-30 detik), mengambil link preset dari komentar, lalu menambahkannya ke v.pre
+tiap video. Tampilan dihidupkan ulang lewat draw() setiap satu video selesai. Pencarian baru
+otomatis menghentikan pembacaan lama (alive).
+Mode komentar: 'smart' (bawaan: baca komentar hanya jika caption bilang "link di komen" atau caption
+belum punya link preset), 'all', 'none'.   Contoh: LuxAPI.enrich(st.list,{mode:'all',limit:6,max:100})
+
+DAFTAR FUNGSI
+  await LuxAPI.video(urlAtauId)                 data TikTok: caption, waktu ISO, statistik, musik, penulis, URL video
+  await LuxAPI.comments(urlAtauId,{max:100})    komentar + total + hasMore; replies:true = ikut balasan
+  LuxAPI.extractLinks(teks)                     [{url, kind, confidence, level, preset, truncated, count, context}]
+  LuxAPI.parseCaption(teks)                     {hashtags, mentions, links, hints:{bio, comment, dm, preset}}
+  await LuxAPI.inspect(urlAtauId,{comments:'smart'})   caption + komentar digabung, tiap link punya daftar sumber
+  LuxAPI.parseInput(teks)                       video / foto / link pendek / user / musik / tag / id polos
+  LuxAPI.configure({gapMs,api,proxy})           pengaturan
+
+JENIS LINK: alight, alight-info, file, drive, paste, telegram, code, linkhub, shortener, donasi, social,
+tiktok, app-store, other. Yang BUKAN preset (selalu preset:false): app-store, tiktok, social, donasi, alight-info.
+KEYAKINAN 0 sampai 1: tinggi >= 0.8, sedang >= 0.5, rendah di bawahnya. Naik bila ada kata preset/xml/alight di
+sekitar link, ekstensi .xml/.alp/.amv, atau link ada di komentar penulis/komentar yang disematkan. Turun bila
+link terpotong ("..."). Link yang di-copy dengan huruf besar/kecil berbeda dianggap berbeda (kode Alight peka huruf).
+
+TINGKATKAN AKURASI CAPTION DAN BIO
+Fungsi scan() milikmu masih dipakai untuk caption/bio. Untuk memakai pembaca link LuxAPI di sana juga,
+kirim screenshot fungsi scan dan norm (bagian atas file) supaya format hasilnya disesuaikan.
+
+CATATAN JUJUR
+- Format respons tikwm comment/list dan comment/reply belum bisa diuji ke server aslinya dari lingkungan
+  pembuatan (dokumentasi resminya tidak ditemukan). Pembacanya menerima beberapa variasi nama field
+  (comments/comment_list, cursor, hasMore/has_more, digg_count/like_count, dst). Bila kosong, jalankan
+  LuxAPI.comments('idVideo') di konsol dan kirim hasilnya.
+- Item v.pre dibuat dengan beberapa nama field umum sekaligus (u, url, href, link, k, kind, conf, from).
+  Kalau kartu video Luxe memakai nama lain, perlu disesuaikan (lihat opsi toPre).
+- Daftar domain preset berdasarkan alight.link, *.app.link, alightmotion.com, alightcreative.com, dan
+  tempat simpan file umum (Mediafire, Drive, Telegram, Pastebin, dll.). Tambah domain baru di KINDS.
