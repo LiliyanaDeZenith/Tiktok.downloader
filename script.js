@@ -797,3 +797,33 @@ if (p && p.catch) p.catch(function () {});
  ensure();
 })();
 
+ };
+
+ /* --- navigasi halaman: tombol Back HP/browser menutup halaman teratas --- */
+ const R={deluxe:renderDx,profile:renderPf},stack=[];let prevOv='',opener=null;
+ const pop=()=>{
+  const n=stack.pop();if(!n)return;
+  PG[n].hidden=true;
+  if(stack.length)R[stack[stack.length-1]]();
+  else{document.documentElement.style.overflow=prevOv;if(opener&&opener.focus)opener.focus()}
+ };
+ const openP=(n,push=true)=>{
+  if(stack[stack.length-1]===n)return;
+  if(!stack.length){prevOv=document.documentElement.style.overflow;document.documentElement.style.overflow='hidden';opener=document.activeElement}
+  stack.push(n);R[n]();PG[n].hidden=false;PG[n].scrollTop=0;
+  if(push)history.pushState({sk:n},'','#'+n);
+  PG[n].querySelector('.skp-b').focus();
+ };
+ const back=()=>{if(stack.length)history.back()};
+ const renderOpen=()=>{if(stack.length)R[stack[stack.length-1]]()};
+ addEventListener('popstate',e=>{const n=e.state&&e.state.sk;while(stack.length&&stack[stack.length-1]!==n)pop();if(n&&!stack.length)openP(n,false)});
+ addEventListener('keydown',e=>{if(e.key==='Escape'&&stack.length&&!document.querySelector('dialog[open]')){e.preventDefault();back()}});
+
+ /* --- pasang: tombol Deluxe, login/logout, ganti bahasa --- */
+ const dxb=$('#dxb');
+ if(dxb)dxb.onclick=()=>openP('deluxe');else console.warn('Tombol Deluxe (#dxb) tidak ditemukan');
+ const dl=$('#dlg');if(dl)dl.addEventListener('close',renderOpen);
+ const _al=applyLang;applyLang=()=>{_al();renderOpen()};
+ document.body.append(pDx,pPf);
+})();
+                                                                                                      
