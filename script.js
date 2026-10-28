@@ -796,6 +796,7 @@ if (p && p.catch) p.catch(function () {});
  let tm;new MutationObserver(()=>{clearTimeout(tm);tm=setTimeout(ensure,150)}).observe(document.body,{childList:true,subtree:true});
  ensure();
 })();
+
 /* ===== SaveTok: menu Deluxe jadi halaman penuh + musik latar (on/off) + Profil (halaman baru) =====
    PASANG: tempel di PALING BAWAH script.js (paling akhir, setelah update Premium dan Luxe).
    - Tombol Deluxe di bar atas sekarang membuka halaman penuh (dialog Deluxe lama tidak dipakai lagi).
@@ -1037,3 +1038,4 @@ if (p && p.catch) p.catch(function () {});
  const _al=applyLang;applyLang=()=>{_al();renderOpen()};
  document.body.append(pDx,pPf);
 })();
+
