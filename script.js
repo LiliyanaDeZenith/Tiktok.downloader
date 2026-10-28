@@ -797,3 +797,97 @@ if (p && p.catch) p.catch(function () {});
  ensure();
 })();
   
+/* ============ MUSIK LATAR - DELUXE SETTING (SVG) ============ */
+const MUSIC_URL = "https://mp3tourl.com/audio/1793181856114-78a1aa6e-c477-491c-b1f1-02691e362e28.mp3";
+
+const bgMusic = document.createElement("audio");
+bgMusic.src = MUSIC_URL;
+bgMusic.loop = true;
+bgMusic.preload = "auto";
+bgMusic.volume = 0.35;
+document.body.appendChild(bgMusic);
+
+let musicOn = localStorage.getItem("lunox_music") === "on";
+
+// SVG Icon Speaker ON / OFF
+const SVG_ON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+const SVG_OFF = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
+
+function updateMusicUI(){
+  const icon = document.getElementById("musicIcon");
+  const label = document.getElementById("musicLabel");
+  const toggle = document.getElementById("musicToggle");
+  if(icon) icon.innerHTML = musicOn ? SVG_ON : SVG_OFF;
+  if(label) label.textContent = musicOn ? "ON" : "OFF";
+  if(toggle){
+    toggle.style.background = musicOn ? "#6a5cff" : "#3a3a4d";
+    toggle.querySelector(".knob").style.transform = musicOn ? "translateX(22px)" : "translateX(0)";
+  }
+}
+
+async function toggleMusic(){
+  musicOn = !musicOn;
+  localStorage.setItem("lunox_music", musicOn ? "on" : "off");
+  updateMusicUI();
+  if(musicOn){
+    try{ await bgMusic.play(); }catch(e){}
+  } else {
+    bgMusic.pause();
+  }
+}
+
+// Fungsi ini yang nempelin ke menu Setting Deluxe kamu
+function injectMusicSetting(){
+  // Cari container setting kamu, sesuaikan salah satu:
+  // #settings, .settings-menu, .deluxe-settings, #settingPanel
+  const container = document.querySelector("#settings, .settings-menu, .deluxe-settings, #settingPanel, #settingsPanel");
+  if(!container) return;
+  if(document.getElementById("musicSettingRow")) return; // biar gak dobel
+
+  const row = document.createElement("div");
+  row.id = "musicSettingRow";
+  row.className = "setting-row";
+  row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08);cursor:pointer;";
+  row.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span id="musicIcon" style="display:flex;color:#a78bfa;">${SVG_OFF}</span>
+      <div>
+        <div style="font-weight:700;font-size:15px;">Musik Latar</div>
+        <div style="font-size:12px;opacity:.6;">Putar musik latar belakang</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="musicLabel" style="font-size:13px;font-weight:600;opacity:.8;">OFF</span>
+      <div id="musicToggle" style="width:46px;height:26px;border-radius:999px;background:#3a3a4d;position:relative;transition:.2s;">
+        <div class="knob" style="width:20px;height:20px;background:white;border-radius:50%;position:absolute;top:3px;left:3px;transition:.2s;"></div>
+      </div>
+    </div>
+  `;
+  row.onclick = toggleMusic;
+  container.appendChild(row);
+  updateMusicUI();
+}
+
+// Panggil setiap ganti halaman, karena halaman kamu SPA (#/...)
+const _oldRender = render;
+render = async function(){
+  await _oldRender();
+  injectMusicSetting();
+  updateMusicUI();
+};
+
+// Kalau setting dibuka lewat modal / klik tombol setting, coba inject lagi
+document.addEventListener("click", (e)=>{
+  if(e.target.closest("#settingBtn, .setting-btn, [data-open-settings]")){
+    setTimeout(injectMusicSetting, 100);
+  }
+});
+
+// Autoplay kalau terakhir ON
+updateMusicUI();
+if(musicOn){
+  document.addEventListener("click", function once(){
+    bgMusic.play().catch(()=>{});
+    document.removeEventListener("click", once);
+  });
+ }
