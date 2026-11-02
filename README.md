@@ -1,8 +1,8 @@
 # TikTok Downloader
 
-<div align="center">
-  <img src="https://i.ibb.co/3W8m9LQ/banner.png" alt="TikTok Downloader Banner" width="100%" />
-</div>
+<p align="center">
+  <img src="https://i.ibb.co/BHCbJBfk/savetok-7694199220236078344-foto3.jpg" alt=". scarlett ." width="100%">
+</p>
 
 Tool sederhana untuk download video dan audio dari TikTok.
 
