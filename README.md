@@ -1,7 +1,7 @@
 # TikTok Downloader
 
 <div align="center">
-  <img src="https://ibb.co.com/kVSjTXGZ" alt="TikTok Downloader Banner" width="100%" />
+  <img src="https://i.ibb.co/3W8m9LQ/banner.png" alt="TikTok Downloader Banner" width="100%" />
 </div>
 
 Tool sederhana untuk download video dan audio dari TikTok.
